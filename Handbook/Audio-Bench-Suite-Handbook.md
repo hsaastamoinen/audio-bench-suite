@@ -1276,785 +1276,469 @@ A latency number without its signal-path definition is rarely enough to reproduc
 
 # 6. Matrix Bench
 
-Matrix Bench is the suite's low-latency routing, mixing and monitoring environment.
+Matrix Bench 2.1.1 for macOS is the suite's low-latency routing, mixing and monitoring environment. It combines physical audio devices, an 8-in/8-out virtual Core Audio device, per-input processing, a crosspoint matrix, independent Main and Aux destinations, snapshots, MIDI control and an always-running headless engine.
 
+Unlike a conventional DAW mixer, Matrix Bench is organized around explicit source-to-destination crosspoints. Main and Aux are first-class destinations in the same matrix rather than fixed copies of a single mix.
 
 <!-- FIGURE PLACEHOLDER: Figure 6.1
 Application: Matrix Bench
-Subject: Main routing matrix
-Show: Input strips, crosspoint matrix, Main/Aux destinations, meters and information area.
+Subject: Main application window
+Show: input strips, crosspoint matrix, Main and Aux destinations, meters, snapshot controls and device selectors.
+Crop: Application window only.
 Suggested size: full text width
-Caption: Matrix Bench main routing and monitoring view.
+Caption: Matrix Bench 2.1.1 main routing and processing window.
 -->
 
-**Figure 6.1.** Matrix Bench main routing and monitoring view.
+**Figure 6.1.** Matrix Bench 2.1.1 main routing and processing window.
 
+## 6.1 Architecture
 
-## 6.1 Complete user and architecture reference
-
-**Matrix Bench** is a low-latency macOS audio routing, processing and monitoring tool by **60°N Signal Works**.
-
-Matrix Bench provides an 8-channel virtual Core Audio device, flexible input-to-output matrix routing, independent Main and Aux physical destinations, per-input filtering and polarity control, output compression, MIDI control, snapshots and persistent engine-owned state.
-
-Version **2.1.1** uses a headless architecture: the audio engine runs independently of the graphical application and remains active when the Matrix Bench window is closed.
-
-#### Current status
-
-Matrix Bench 2.1.1 is the current release candidate. Its 2.1.1 state-ownership, snapshot, persistence and CLI changes are being qualified before the production release checkpoint.
-
-The production architecture has been validated with independent headless engine operation, simultaneous Main and Aux routing, virtual Core Audio I/O, physical-device hotplug and recovery, mixed sample-rate physical outputs, persistent routing/mixer/DSP state, SS1-SS4 snapshots, MIDI control and MIDI Learn, snapshot topology transitions, linked Main/Aux output compressors, launchd startup, preferred virtual stereo-pair persistence, latency regression tests, and extended FIFO/SRC/independent-clock stress testing.
-
-The automated test suite currently contains 14 tests.
-
-### Architecture
-
-Matrix Bench 2.1.1 separates the macOS audio runtime from the graphical controller.
+Matrix Bench is split into three cooperating parts:
 
 ```text
-macOS applications
-       |
-       | Core Audio
-       v
-60°N Audio Matrix HAL device
-       |
-       v
+Matrix Bench GUI
+      |
+      | local control / state
+      v
 MatrixBenchEngine
-       |
-       +---- routing matrix / DSP / MIDI / state
-       |
-       +---- Main physical output
-       |
-       +---- Aux physical output
-
-Matrix Bench.app
-       |
-       | control / state / telemetry IPC
-       v
-MatrixBenchEngine
+      |
+      +---- physical Core Audio devices
+      |
+      +---- Matrix Bench virtual HAL device
 ```
 
-#### MatrixBenchEngine
+`MatrixBenchEngine` is the persistent audio engine. It runs independently of the GUI under `launchd`, so audio routing does not depend on keeping the application window open.
 
-`MatrixBenchEngine` is the authoritative runtime owner. It owns physical audio-device I/O, virtual-device audio exchange, input DSP, matrix routing, Main and Aux destination processing, output compression, MIDI input and mapping execution, snapshots, persistent runtime state, physical-device recovery, sample-rate conversion and independent-output clock handling.
+The GUI is a controller and status surface for that engine. Closing the GUI does not intentionally stop audio.
 
-The engine runs independently of Matrix Bench.app.
+The virtual HAL device provides eight input and eight output channels to Core Audio clients and participates in the same routing architecture.
 
-#### Matrix Bench.app
+## 6.2 Signal flow
 
-`Matrix Bench.app` is an optional controller and monitor for the engine. The GUI does not own the audio runtime.
-
-Closing the application does not stop the audio path. Reopening the GUI reconnects to the running engine and synchronizes to authoritative engine state.
-
-Control changes are sent to the engine, and runtime state changes, including MIDI-driven changes, are reflected back to the UI.
-
-#### 60°N Audio Matrix virtual device
-
-The included Core Audio HAL driver exposes an **8-input / 8-output virtual audio device** named `60°N Audio Matrix`.
-
-Applications can use it like a normal Core Audio device. The virtual device is part of the Matrix Bench architecture and does not require BlackHole or a macOS Multi-Output Device for Matrix Bench's internal routing.
-
-The HAL device exposes the Matrix Bench device icon through the standard Core Audio device-icon property.
-
-### Signal flow
-
-The audio engine uses a single coherent routing architecture for Main and Aux.
+For each physical or virtual input, the signal path is conceptually:
 
 ```text
-Physical / virtual input
-        |
-        v
-Raw input meter
-        |
-        v
-Per-input processing
-  - gain / mute
-  - polarity invert
-  - HPF
-  - LPF
-        |
-        v
-Crosspoint routing matrix
-        |
-        +-----------------------+
-        |                       |
-        v                       v
-      Main                     Aux
-        |                       |
-        v                       v
-Linked stereo compressor Linked stereo compressor
-        |                       |
-        v                       v
-Destination gain / mute   Destination gain / mute
-        |                       |
-        v                       v
-Final master level        Final master level
-   (-inf ... 0 dB)           (-inf ... 0 dB)
-        |                       |
-        v                       v
-Output metering           Output metering
-        |                       |
-        v                       v
-Physical Main output      Physical Aux output
+input
+  -> raw input meter
+  -> polarity inversion
+  -> HPF / LPF
+  -> matrix crosspoints
+       -> Main destination gain / mute -> Main compressor -> Main output
+       -> Aux destination gain / mute  -> Aux compressor  -> Aux output
 ```
 
-Main and Aux are first-class independent matrix destinations. An input can be routed to Main, Aux, both, or neither, with independent crosspoint gain for each destination.
+Input meters are intentionally taken before the per-input processing. They therefore show the incoming signal rather than the level after INV or filtering.
 
-The compressor is post-matrix processing and runs before the destination gain/mute stage. Main and Aux each have their own independent linked compressor. Version 2.1.0 added an independent final Main/Aux master attenuation stage after compressor and destination gain/mute, immediately before output metering and physical output. Each master ranges from exact digital silence (-inf dB / 0x) to unity (0 dB / 1x) and adds no buffering or lookahead. Output peak and clip metering occurs after the final master stage.
+Each matrix crosspoint has its own gain. Main and Aux also have destination-level gain and mute controls.
 
-Gain-reduction metering is telemetry only and does not form part of the audio signal path.
+## 6.3 Inputs
 
-### Controls, mouse and keyboard shortcuts
+Each input channel provides:
 
-Matrix Bench uses direct clicks for the common routing and mute operations, with modifier clicks and context menus for secondary functions.
+- input metering;
+- polarity inversion (**INV**);
+- high-pass filter;
+- low-pass filter;
+- independent routing/gain to each matrix destination.
 
-#### Inputs
+The input filters support 6, 12 and 24 dB/octave slopes. Processing occurs before the matrix so all destinations fed from an input receive the same selected input polarity/filter state.
 
-- Click the input **M** control to toggle mute.
-- Right-click an input label to open its context menu.
-- The input context menu provides mute, polarity inversion, input gain presets, HPF and LPF configuration.
-- HPF and LPF frequency and slope selections are available directly from their context submenus.
-- MIDI Learn/Clear is available separately for input gain, mute, polarity, HPF enable and LPF enable.
+This architecture avoids duplicating input conditioning independently for Main and Aux.
 
-#### Main and Aux outputs
+## 6.4 The crosspoint matrix
 
-- Click the output **M** control to toggle mute.
-- Right-click an output header to open its context menu.
-- The output context menu provides mute, gain presets at 0, -3, -6, -12, -20, -40, +3, +6 and +12 dB, and MIDI Learn/Clear for output gain and mute.
+A crosspoint answers a simple question: **how much of this input is sent to this destination?**
 
-The same interaction model applies to Main and Aux outputs.
+That makes Matrix Bench suitable for both conventional routing and less conventional test/monitor arrangements. A source can feed Main, Aux, both, or neither, and the gain of each path can differ.
 
-Main and Aux also have independent horizontal final master controls. These are attenuation-only controls from -inf dB to 0 dB and operate after the compressor and destination gain/mute stages. Option-click the master scale area to start MIDI Learn without changing the fader value.
+The matrix should be treated as the authoritative routing surface. Do not assume that selecting a device automatically creates a useful signal path; the required crosspoints must also be active.
 
-#### Matrix crosspoints
+<!-- FIGURE PLACEHOLDER: Figure 6.2
+Application: Matrix Bench
+Subject: Crosspoint routing
+Show: several inputs with different Main/Aux crosspoint gains, including at least one source routed to both destinations and one routed to only one destination.
+Crop: Matrix and adjacent input/destination labels only.
+Suggested size: full text width
+Caption: Each Matrix Bench crosspoint independently controls one input-to-destination path.
+-->
 
-- Click a crosspoint to operate its route.
-- Right-click a crosspoint to open its context menu.
-- The crosspoint context menu provides gain presets at 0, -3, -6, -12, -20, -40, +3, +6 and +12 dB.
-- MIDI Learn/Clear is available separately for **Crosspoint gain** and **Route on/off**.
+**Figure 6.2.** Independent input-to-destination crosspoints.
 
-Main and Aux crosspoints use the same interaction model.
+## 6.5 Main and Aux destinations
 
-#### Snapshots
+Main and Aux are independent first-class destinations. Each has:
 
-- Click **SS1-SS4** to recall a snapshot.
-- Shift-click **SS1-SS4** to save/capture the current state to that snapshot.
-- Option-click **SS1-SS4** to start MIDI Learn for snapshot recall.
-- Right-click **SS1-SS4** to rename the snapshot.
+- its own matrix crosspoint gains;
+- destination gain;
+- mute;
+- output device/channel configuration;
+- output metering;
+- independent master compressor.
 
-#### Compressor controls
+Aux is an all-channel endpoint rather than a hidden copy of Main.
 
-Double-click an individual compressor control to reset that parameter to its default value.
+This makes it possible, for example, to build one monitor mix on Main and a separate measurement, recording or alternate monitoring path on Aux without changing the input processing.
 
-#### MIDI Learn
+## 6.6 Output devices and channels
 
-Press **Esc** to cancel an active MIDI Learn operation.
+Main and Aux can target physical outputs or the Matrix virtual device, subject to feedback-prevention rules.
 
-### Routing matrix
+When changing physical devices, Matrix Bench preserves the selected channel identity where that channel exists on both devices. The purpose is to keep routing stable across device changes rather than silently reinterpreting an old channel number as a different logical destination.
 
-The matrix provides independent crosspoints from each input to Main and Aux.
+If a device becomes unavailable, the engine is designed to survive the loss and recover when the device returns. Device availability is therefore a runtime condition, not a reason for the entire routing state to be discarded.
 
-Each crosspoint supports route enable/disable, independent gain and MIDI Learn/Clear.
+## 6.7 Independent output clocks and sample-rate conversion
 
-Main and Aux destination controls operate consistently and independently.
+Main and Aux may involve devices that do not share a hardware clock. Matrix Bench handles independent output clock domains rather than assuming that two selected devices remain sample-synchronous forever.
 
-The routing topology is retained even when a configured physical output temporarily disappears. A missing endpoint is treated as unavailable hardware rather than as a reason to destroy the logical routing configuration.
+Where required, the engine performs sample-rate conversion and clock-domain adaptation between the internal routing stream and the destination device.
 
-Main and Aux crosspoint routing is destination-device scoped. Each destination remembers its own routing bank, so changing a physical output does not reinterpret the previous device's channel indexes as routes for the newly selected device. Returning to a previously used destination restores that destination's remembered crosspoints. Main and Aux keep independent banks.
+This matters with combinations such as a professional interface, a fixed-rate modeler and Bluetooth audio. A nominal sample-rate label alone does not establish a common physical clock.
 
-### Input processing
+For measurement work, prefer a single known clock domain when possible. Independent-device routing is useful, but asynchronous conversion and device buffering become part of the real system behavior.
 
-Each input provides gain, mute, polarity inversion, high-pass filter, low-pass filter and input metering.
+## 6.8 The Matrix virtual audio device
 
-HPF and LPF slopes support 6 dB/oct, 12 dB/oct and 24 dB/oct.
-
-Input meters represent the raw input before the normal per-input processing chain.
-
-### Main and Aux output processing
-
-Main and Aux each provide independent matrix routing, destination gain, mute, linked stereo compression, final master attenuation, output metering and independent physical-device selection.
-
-The two destinations may use separate physical devices and separate clock domains.
-
-Temporary loss of one physical destination does not stop the other destination.
-
-### Output compressors
-
-Main and Aux each have an independent bypassable linked stereo master compressor.
-
-Controls are threshold, ratio, attack, release and makeup gain.
-
-Compressor characteristics:
-
-- fixed 6 dB soft knee;
-- zero lookahead;
-- stereo-linked gain reduction.
-
-Default settings:
+The Matrix Bench Core Audio HAL device exposes:
 
 ```text
-Threshold   -12 dB
-Ratio        2:1
-Attack       20 ms
-Release      200 ms
-Makeup        0 dB
+8 inputs
+8 outputs
 ```
 
-Detailed compressor controls are located in the Options window so that the main matrix view remains compact.
+to multichannel-aware macOS applications.
 
-Double-clicking an individual compressor control resets that control to its default value.
+All eight channels are available to clients. Conventional stereo pairs 1-2, 3-4, 5-6 and 7-8 can be used by software that supports explicit multichannel selection.
 
-Parameter changes are coalesced during dragging at approximately 60 Hz, followed by an exact final update when the gesture ends. Authoritative engine updates do not fight an actively manipulated control.
+The virtual device is useful for routing audio between Matrix Bench and applications without an external loopback cable.
 
-#### Gain-reduction display
+<!-- FIGURE PLACEHOLDER: Figure 6.3
+Application: macOS Audio MIDI Setup
+Subject: Matrix Bench virtual audio device
+Show: Matrix virtual device selected with its eight input and eight output channels visible.
+Crop: Audio MIDI Setup device/channel area only.
+Suggested size: approximately 75% text width
+Caption: The Matrix Bench virtual Core Audio device exposes eight input and eight output channels.
+-->
 
-Main and Aux have compact amber/yellow gain-reduction meters.
+**Figure 6.3.** Matrix Bench 8×8 virtual Core Audio device.
 
-The display uses conventional downward gain-reduction indication with a negative dB scale and numeric readout.
+## 6.9 macOS channel selection
 
-Display-only smoothing is 5 ms attack and 250 ms release. The bar and numeric readout use the same smoothed display value.
+The virtual device is intended to remain usable when the Matrix Bench GUI is not open. Channel configuration therefore cannot depend solely on application-local controls.
 
-These UI ballistics do not alter compressor DSP behavior or raw gain-reduction telemetry.
+macOS-side channel selection, including non-adjacent output assignments available through Audio MIDI Setup speaker configuration, participates in the headless architecture. A configuration such as channels 4 and 8 can be selected where Core Audio exposes that mapping.
 
-### Physical-device handling
+The GUI should reflect the effective OS-side configuration when it is open rather than creating a second contradictory routing truth.
 
-Matrix Bench separates logical routing topology from physical endpoint availability.
+For applications that are explicitly multichannel-aware, direct selection of all eight virtual channels remains preferable to relying on a stereo speaker mapping.
 
-Validated behavior includes:
+## 6.10 Feedback prevention
 
-- Main and Aux using different physical devices;
-- device hotplug;
-- automatic recovery after a configured device returns;
-- preservation of configured device identity;
-- preservation of matrix topology while an endpoint is unavailable;
-- continued operation of one destination when the other disappears;
-- rejection of feedback-prone selection of the `60°N Audio Matrix` virtual device as a physical output endpoint.
+Virtual routing makes accidental feedback easy. Matrix Bench therefore prevents configurations in which the Matrix virtual device would be used simultaneously as both Main and Aux in a way that creates an unsafe/undefined routing loop.
 
-The primary JUCE `AudioDeviceManager` path is input-only. Main and Aux physical outputs are explicitly owned and managed by the engine.
+A rejected device selection is intentional protection, not a hot-plug failure.
 
-### Independent output clocks and sample-rate conversion
+When designing a more complicated inter-application route, trace the complete signal path from source to destination before enabling crosspoints. A virtual cable is still a cable from a feedback point of view.
 
-Main and Aux physical devices can operate in clock domains that are independent of the engine and of each other.
+## 6.11 Headless engine
 
-The physical-output bridge provides asynchronous buffering, sample-rate conversion, bounded FIFO operation and rate-servo correction for clock drift.
-
-Live mixed-rate configurations have been validated, including 44.1 kHz engine/Main with a 48 kHz Aux endpoint, 48 kHz engine with 44.1 kHz physical outputs, simultaneous Main and Aux output, and 16-sample engine-buffer operation.
-
-Deterministic stress coverage also exercises mismatched and continuously varying producer/consumer block sizes.
-
-### Virtual stereo-pair preference
-
-The virtual Core Audio device remains fully available as eight channels.
-
-Its standard preferred-stereo-channel property can be set independently to 1-2, 3-4, 5-6 or 7-8.
-
-The headless engine owns and persists this configuration, so Matrix Bench.app does not need to be opened to configure it.
-
-```bash
-matrixbenchctl stereo-pair 1-2
-matrixbenchctl stereo-pair 3-4
-matrixbenchctl stereo-pair 5-6
-matrixbenchctl stereo-pair 7-8
-```
-
-Current engine state can be inspected with:
-
-```bash
-matrixbenchctl status
-```
-
-The configured stereo pair is reapplied when the engine starts.
-
-### Snapshots
-
-Matrix Bench provides four snapshots: SS1, SS2, SS3 and SS4.
-
-Snapshots restore the relevant engine-owned routing, mixer, device and DSP state. Snapshot names are editable, and snapshots can be recalled through MIDI Learn.
-
-#### Atomic topology transitions
-
-Topology-changing snapshot recall uses a silence-held transaction.
-
-The current audio state fades fully to silence before physical topology changes begin. Silence remains held while input devices, Main and Aux devices, topology, routing and processing state are restored and validated.
-
-The silence hold is released only after the complete recalled state is installed, after which normal ramp-up begins.
-
-This avoids exposing intermediate routing/device states to the audible output.
-
-### Persistence
-
-Runtime state is owned and persisted by the headless engine.
-
-Persistent state includes the applicable physical-device selections, virtual preferred stereo pair, routing, crosspoint gains, Main and Aux destination state, input processing, compressor settings, MIDI input selection, MIDI channel selection, MIDI mappings and current live state.
-
-SS1-SS4 snapshot state is stored separately as snapshot state rather than replacing normal live-state persistence.
-
-### MIDI
-
-Matrix Bench provides engine-owned MIDI control with persistent MIDI Learn mappings.
-
-Supported MIDI configuration includes MIDI input-device selection, Omni mode, channel 1-16 filtering and persistent mapping state.
-
-MIDI Learn/Clear is available for input gain, input mute, polarity, HPF enable, LPF enable, Main/Aux destination gain and mute, Main/Aux final master level, Main/Aux compressor enable, Main/Aux crosspoint gain and route enable, and SS1-SS4 recall.
-
-A single CC may control more than one mapped target.
-
-Input, destination and crosspoint gains use the same fixed gain steps as the UI. The 7-bit CC ranges are: `0-7 = -40 dB`, `8-23 = -20 dB`, `24-39 = -12 dB`, `40-55 = -6 dB`, `56-71 = -3 dB`, `72-87 = 0 dB`, `88-103 = +3 dB`, `104-119 = +6 dB`, and `120-127 = +12 dB`. Main/Aux final master controls instead use their continuous attenuation law, with CC 0 at exact silence and CC 127 at 0 dB/unity.
-
-For switch-like controls, values 0-63 are off and 64-127 are on.
-
-MIDI-driven state changes are executed by the engine and propagated back to the GUI.
-
-MIDI endpoint inventory is engine-owned and refreshed for endpoint changes/hotplug. The GUI populates MIDI devices from the authoritative initial runtime snapshot and resynchronizes automatically if it is opened before the engine IPC endpoint is ready. Learned master and compressor-enable mappings remain active with the GUI closed and persist across engine restarts.
-
-### Headless service
-
-On macOS the engine runs as a per-user launchd service.
-
-LaunchAgent label: `works.60n.matrixbench.engine`
-
-LaunchAgent:
+`MatrixBenchEngine` is installed as an always-running user service with launchd label:
 
 ```text
-~/Library/LaunchAgents/works.60n.matrixbench.engine.plist
+works.60n.matrixbench.engine
 ```
 
-Per-user runtime directory:
+The GUI communicates with the engine through its local control channel. The runtime socket lives under `/tmp` while the service is running.
+
+The important user-visible consequence is simple: **routing can continue without the GUI**.
+
+This is particularly important for the virtual device. Core Audio clients and physical routing should not require a visible Matrix Bench application window merely to keep passing audio.
+
+## 6.12 Persistence
+
+Matrix Bench persists the routing and processing state needed to restore the working system, including:
+
+- selected input/output devices and channels;
+- matrix crosspoint gains;
+- destination gains and mutes;
+- input INV state;
+- HPF/LPF state and settings;
+- compressor state/settings;
+- snapshot definitions and names;
+- MIDI assignments where applicable.
+
+Restoration is designed to preserve logical routing identity across device availability changes rather than collapsing the configuration when a device is temporarily absent.
+
+## 6.13 Snapshots
+
+Four snapshots, **SS1–SS4**, provide fast recall of routing and processing state.
+
+Snapshot names are editable. Right-click renames a snapshot, and the UI indicates when a snapshot is being applied.
+
+Snapshot recall is designed to be atomic from the user's perspective. Earlier development exposed multiple audible intermediate transitions while device, routing, mixer and DSP state were restored separately. The qualified implementation applies the state as one coordinated transition so the listener does not hear a sequence of temporary configurations.
+
+A snapshot can include routing, gains, mutes, INV, filters and other persisted processing state rather than being merely a matrix preset.
+
+<!-- FIGURE PLACEHOLDER: Figure 6.4
+Application: Matrix Bench
+Subject: Snapshot controls
+Show: SS1-SS4 with user-edited names and enough surrounding UI to establish their location.
+Crop: Snapshot/control area only.
+Suggested size: approximately 65% text width
+Caption: Four named snapshots provide coordinated recall of routing and processing state.
+-->
+
+**Figure 6.4.** Matrix Bench snapshot controls.
+
+## 6.14 MIDI control
+
+Matrix Bench supports MIDI control and MIDI Learn for relevant routing/mixer actions.
+
+The MIDI menu groups learn/clear operations and controllable parameter types such as Gain, Polarity and Mute. A global **Forget all** action clears learned assignments, and MIDI channel selection limits the control source where required.
+
+Snapshot recall can also be learned. Option-click is used for snapshot MIDI Learn.
+
+MIDI control changes the same engine state as GUI control; it is not a separate parallel mixer.
+
+For diagnosing controller traffic before assigning it, MIDI Bench is the companion tool in the suite.
+
+## 6.15 Main and Aux compressors
+
+Main and Aux each have an independent studio-style master compressor. Compression is destination-specific and occurs after the matrix/destination mix.
+
+Each compressor provides:
+
+- bypass;
+- threshold;
+- attack;
+- release;
+- makeup gain;
+- gain-reduction metering.
+
+Detailed controls are kept behind the compressor/options interface so the main matrix remains readable.
+
+The compressors are intended as practical output dynamics controls for music, speech and monitoring, not as hidden safety limiters. Bypass them when a measurement requires an unmodified amplitude path.
+
+## 6.16 Gain-reduction metering
+
+Each destination compressor has a gain-reduction meter distinct from the normal signal-level meter.
+
+Gain reduction uses a negative-dB convention and is displayed top-down, making increasing compression visually different from increasing signal level. The meter is UI-smoothed independently of the audio processing.
+
+As with the other meters, the display is a monitoring aid. The DSP state and signal path, not the meter animation, define the actual processing.
+
+## 6.17 Metering
+
+Matrix Bench provides input and destination meters with subtle engineering scales.
+
+Input meters are pre-input-DSP. Main/Aux meters represent their destination signal path. Gain-reduction meters show compressor action.
+
+Meter ballistics are intentionally smoothed enough to remain readable rather than reacting as raw sample-peak oscilloscopes. Meter smoothing does not alter the audio.
+
+## 6.18 Buffer size
+
+The supported buffer-size choices are:
 
 ```text
-~/Library/Application Support/60N Signal Works/Matrix Bench/
+16
+32
+64
+128
+256
+512 samples
 ```
 
-The directory contains `MatrixBenchEngine` and `matrixbenchctl`.
+The requested buffer size and the actual callback behavior must not be confused with an arbitrary fixed HAL property.
 
-The engine IPC socket is:
+During HAL development, the virtual device initially exposed a fixed 512-frame `gBufferFrameSize` even when clients requested much smaller buffers. Qualification work established that the relevant I/O operation uses the actual `ioBufferFrameSize`, and the production architecture/tests were brought into agreement with the supported variable-size behavior.
+
+A buffer-size control is therefore meaningful, but it still does not by itself equal end-to-end latency.
+
+## 6.19 Buffer size versus physical latency
+
+Physical latency includes more than one callback block:
 
 ```text
-/tmp/works.60n.matrixbench.engine.sock
+application / engine buffering
++ driver / safety buffering
++ D/A conversion
++ external physical path
++ A/D conversion
++ any SRC / clock-domain adaptation
 ```
 
-The service is independent of Matrix Bench.app.
+A 16-sample request at 48 kHz is only about 0.333 ms of sample time. It does not imply a 0.333 ms physical round trip.
 
-### Installation
+Matrix Bench's virtual routing can also introduce different behavior from a direct physical path because Core Audio clients, the HAL driver and the engine participate in the route.
 
-The macOS installer installs:
+Use Latency Bench or the documented physical loopback procedure when the engineering question is actual path latency.
+
+## 6.20 Physical loopback latency qualification
+
+Matrix Bench includes documented physical round-trip testing using a persistent Core Audio client. The same client requests a buffer size, starts its IOProc, verifies callback size, measures the physical loopback and is then destroyed.
+
+The qualified buffer set is:
 
 ```text
-/Applications/60°N Signal Works Audio Bench Suite/Matrix Bench.app
+16 / 32 / 64 / 128 / 256 / 512
 ```
 
-HAL driver:
+Physical qualification used the RME Babyface Pro at 48 kHz with a direct analog loopback from an output to an input.
 
-```text
-/Library/Audio/Plug-Ins/HAL/60N Audio Matrix.driver
-```
+The purpose of the test is not merely to prove that `SetBufferFrameSize` returns success. It verifies the behavior while a real client remains alive and processing audio.
 
-Canonical engine and control-tool copies:
+## 6.21 HAL callback qualification
 
-```text
-/Library/Application Support/60N Signal Works/Matrix Bench/
-```
+The virtual driver has dedicated HAL callback tests in addition to physical loopback tests. These exercise client callback behavior and buffer-size handling independently of the GUI.
 
-The installer provisions the corresponding per-user runtime files and LaunchAgent for the logged-in console user.
+This distinction is important:
 
-Launchd setup uses `enable`, `bootstrap`, then `kickstart`, in that order, so a persistent launchd disabled override can be recovered during installation.
+- a HAL unit/callback test validates driver/client mechanics;
+- a physical loopback test validates real end-to-end timing through hardware;
+- a subjective listening test can expose practical problems but is not a replacement for either.
 
-The installer does not kill, restart or otherwise control `coreaudiod`.
+The production qualification requires the relevant automated HAL tests and the documented physical validation to pass.
 
-The HAL driver is discovered through normal macOS Core Audio lifecycle behavior.
+## 6.22 Hot-plug and unavailable devices
 
-The current installer package is unsigned.
+The engine is designed for devices to disappear and return without requiring the routing configuration to be rebuilt from scratch.
 
-### Build and test
+When an input or Main/Aux output disappears, its logical identity is retained so that it can recover when the same device becomes available again.
 
-Matrix Bench is implemented in C++ using JUCE and CMake.
+For a headless system this behavior is essential. A temporary USB or Bluetooth disconnect must not require opening the GUI and manually reconstructing the entire matrix.
 
-For the current release-validation build:
+## 6.23 Device-specific considerations
 
-```bash
-cmake --build build-release-check -j
-ctest --test-dir build-release-check --output-on-failure
-```
-
-The current 2.1.1 development baseline passes all 14 automated tests; final 2.1.1 release qualification is performed before packaging and the Git release checkpoint.
-
-### macOS package
-
-The package builder is `packaging/build-macos-pkg.sh`.
-
-Example:
-
-```bash
-packaging/build-macos-pkg.sh build-release-check 2.1.1 "$PWD/Dist"
-```
-
-Result:
-
-```text
-Dist/Matrix-Bench-2.1.1.pkg
-```
-
-The package is built as a non-relocatable application installation so reinstall/upgrade behavior restores the canonical application path rather than following stale macOS relocation metadata.
-
-The completed HAL driver bundle is ad-hoc re-signed after bundle assembly so its `Info.plist` and `Contents/Resources` are included in the code-signing seal. The Release and installed HAL bundles pass `codesign --verify --deep --strict`.
-
-The final 2.1.1 package has passed a complete package-only clean installation after removal of the existing Matrix Bench application, HAL driver, headless runtime and LaunchAgent. The virtual HAL device, engine, controller utility and GUI reinstalled and operated without manual repair or post-install signing. The installed app and HAL report version 2.1.1, and the installed HAL passes strict code-signature verification.
-
-### Latency
-
-Several latency quantities are intentionally treated separately.
-
-#### Application processing path
-
-Deterministic impulse regression shows that the steady-state direct Matrix engine processing path adds **0 samples** of additional application-level block latency.
-
-This has been verified at callback sizes 16, 32, 64, 128, 256 and 512 samples.
-
-#### Independent physical-output bridge
-
-The independent output bridge intentionally maintains a 1024-source-frame startup reservoir.
-
-Approximate reservoir duration:
-
-```text
-44.1 kHz   23.220 ms
-48 kHz     21.333 ms
-```
-
-#### HAL/device path
-
-Live same-client persistent-I/O validation covers **16, 32, 64, 128, 256 and 512-frame** Core Audio quanta. For every validated quantum, the actual IOProc callback size matches the requested quantum and virtual-device loopback displacement is exactly **2 x the active client quantum**.
-
-The real-time HAL path follows the `ioBufferFrameSize` supplied to `DoIOOperation()`. A process-local driver variable observed from another process must not be used to infer a Core Audio client's active callback quantum.
-
-The HAL advertises zero additional HAL latency and safety offset.
-
-For the 2.1.0 release candidate, the persistent virtual-HAL regression was repeated after addition of the final master stages. Two complete 48 kHz sweeps passed at 16, 32, 64, 128, 256 and 512 frames, with callback quantum matching the requested quantum, correlation 1.0 and loopback displacement remaining exactly 2 x quantum. Two Babyface physical regression spot checks also produced valid paired-marker results at 145.850 frames / 3.039 ms and 152.574 frames / 3.179 ms. Those physical spot checks reported 512-frame Core Audio properties and are retained only as regression checks; they do not replace the authoritative documented 2.0.1 physical 16-512 sweep.
-
-For the final 2.1.1 qualification, the complete Babyface 48 kHz physical sweep was repeated at all six Matrix Bench quanta, producing median round-trip results of 147.908, 172.934, 315.020, 492.592, 949.968 and 1944.856 frames respectively. Persistent virtual-HAL validation passed two complete 16-512 sweeps during qualification and two further complete sweeps against the package-installed final HAL; every point retained exact callback-quantum agreement, correlation 1.0 and displacement exactly 2 x quantum.
-
-These values describe different parts of the system and should not be treated as though they represented the same measurement point.
-
-Repeatable virtual-HAL and physical-I/O procedures, PASS criteria, commands and interpretation are documented in [`docs/LATENCY_TESTING.md`](docs/LATENCY_TESTING.md). Completed reference measurements cover both the virtual HAL path and the physical round-trip path at 48 kHz across 16, 32, 64, 128, 256 and 512-sample Matrix Bench quanta.
-
-### Validation
-
-Matrix Bench has been exercised with, among others:
+The qualification environment has included:
 
 - RME Babyface Pro;
 - Neural DSP Quad Cortex;
-- JBL Bluetooth audio;
-- the built-in `60°N Audio Matrix` virtual device.
+- JBL Tune 530BT;
+- Mac internal audio;
+- Matrix Bench virtual 8×8 device.
 
-Validation has included direct routing, simultaneous Main/Aux routing, independent device clocks, sample-rate conversion, 16-sample engine buffers, hotplug and endpoint recovery, persistent state, MIDI control, snapshot recall, topology-changing snapshot recall, linked output compression, cold-start launchd operation, package reinstall, Core Audio health checks, and long-running/high-volume FIFO/SRC stress tests.
+These devices deliberately exercise different constraints. The Quad Cortex operates at 48 kHz. The tested JBL Bluetooth path operates at 44.1 kHz and brings Bluetooth buffering into the system. The Babyface supports flexible professional-interface operation and was used for physical loopback qualification.
 
-One automated stress group processes 15,000,000 source frames across fixed, mismatched and continuously varying producer/consumer block-size scenarios while checking exact per-channel sequence integrity and bounded FIFO behavior.
+These are validation examples, not an exclusive compatibility list.
 
-### Design principles
+## 6.24 CLI control
 
-Matrix Bench is intentionally functionality-first.
+The development/install architecture includes `matrixbenchctl` for command-line interaction with the engine.
 
-The priorities are deterministic behavior, low latency, explicit routing, visible state, recoverable device handling, headless operation, minimal hidden magic, straightforward controls, reliable persistence and testable audio behavior.
+It is primarily an engineering/service interface rather than the normal end-user control surface. Most users should configure routing through Matrix Bench itself or through learned MIDI control.
 
-The GUI is deliberately a controller for the underlying engine rather than the architectural center of the application.
+The handbook therefore documents the existence and architectural role of `matrixbenchctl` without making direct CLI operation a prerequisite for using the installed suite.
 
-### Project documentation
+## 6.25 Installation
 
-Detailed engineering history, completed sprint work, validation notes and roadmap closure are retained in `docs/ROADMAP.md`.
-
-That document contains development chronology. This README describes the current Matrix Bench 2.1.1 architecture and behavior.
-
-### Version
-
-**Matrix Bench 2.1.1**
-
-60°N Signal Works
-
-<!-- FIGURE PLACEHOLDER: Figure 6.2
-Application: Matrix Bench / Audio MIDI Setup
-Subject: Virtual-device configuration
-Show: The 60°N Audio Matrix virtual device and representative channel configuration.
-Suggested size: full text width
-Caption: Matrix Bench virtual Core Audio device configuration on macOS.
--->
-
-**Figure 6.2.** Matrix Bench virtual Core Audio device configuration on macOS.
-
-
-## 6.2 Latency and HAL validation
-
-This document defines the repeatable latency validation procedures for both the
-`60°N Audio Matrix` virtual Core Audio HAL device and real physical audio I/O.
-
-The two measurements are deliberately separate. A virtual HAL loopback result
-must not be interpreted as physical converter/driver round-trip latency, and a
-physical round-trip result contains hardware/driver contributions outside the
-Matrix Bench processing path.
-
-#### 1. Virtual HAL persistent-I/O latency
-
-##### Purpose
-
-Verify the real Core Audio `AudioDeviceIOProc` path at the active client quantum,
-without relying on the driver's process-local `gBufferFrameSize` as evidence of
-the client callback size.
-
-The important property of this test is lifetime: the same Core Audio client
-sets the quantum, creates and starts its IOProc, observes the actual callback
-frame count, measures loopback displacement, and only then destroys that I/O
-context.
-
-##### Build
-
-```bash
-cd ~/Projects/audio-matrix
-cmake --build build-hal --target MeasureHalPersistentIOLatency -j6
-```
-
-##### Run
-
-```bash
-./build-hal/MeasureHalPersistentIOLatency 3
-```
-
-The argument is the measurement duration in seconds per quantum.
-
-##### Required coverage
-
-The regression sweep is:
+The intended macOS suite location is:
 
 ```text
-16 32 64 128 256 512 frames
+/Applications/60°N Signal Works Audio Bench Suite
 ```
 
-For every quantum `Q`, PASS requires:
+Matrix Bench installation also supplies the components required by the headless engine and virtual Core Audio device.
 
-- setting `kAudioDevicePropertyBufferFrameSize` succeeds;
-- reading the property immediately after the set returns `Q`;
-- actual IOProc callbacks are `Q` frames (`callback_min == callback_max == Q`);
-- the property remains `Q` while that same IOProc is running;
-- generated and captured streams correlate cleanly;
-- measured virtual loopback displacement is exactly `2 * Q` samples.
+Because the engine and HAL component outlive the GUI process, installation and removal must be treated as system integration rather than simply copying or deleting one `.app` bundle.
 
-At 48 kHz the validated reference values are:
+The current individual Matrix package is version 2.1.1. Suite-level installer consolidation is a separate distribution task and does not change the architecture described here.
 
-| Quantum | Callback | Displacement | Latency |
-| ---: | ---: | ---: | ---: |
-| 16 | 16 | 32 samples | 0.666667 ms |
-| 32 | 32 | 64 samples | 1.333333 ms |
-| 64 | 64 | 128 samples | 2.666667 ms |
-| 128 | 128 | 256 samples | 5.333333 ms |
-| 256 | 256 | 512 samples | 10.666667 ms |
-| 512 | 512 | 1024 samples | 21.333333 ms |
+## 6.26 Practical routing workflows
 
-Reference validation on 2026-09-11 produced correlation `1.000000000` at every
-quantum and `summary=PASS failures=0`.
+### Independent monitor and measurement outputs
 
-##### Interpretation
+Route the required sources to Main for monitoring and create a different set of Aux crosspoints for the measurement or recording path. Keep the input DSP common unless the experiment specifically requires a different source treatment.
 
-The production real-time HAL path uses the `ioBufferFrameSize` supplied to
-`DoIOOperation()`. Live same-client testing proves that Core Audio can run the
-device with 16...512-frame callbacks even when a process-local diagnostic view
-of driver state is not a reliable representation of another Core Audio
-client's active quantum.
+### Feed another macOS application
 
-Therefore, do not infer real I/O callback size or latency from a separate
-process observing a process-local `gBufferFrameSize`.
+Route the desired matrix destination to the Matrix virtual device and select the corresponding virtual channels in the receiving application. Verify the direction carefully and avoid routing the receiving application's return back into the same virtual path unless feedback is explicitly intended and controlled.
 
-The HAL advertises zero additional HAL latency and zero safety offset. The
-measured virtual-device displacement is nevertheless `2 * Q`; that measured
-transport displacement and the advertised HAL latency properties are different
-quantities.
+### Recall a test configuration
 
-##### Regression rule
+Build the complete device, channel, matrix, mute, gain and processing state, save it to SS1–SS4 and give the snapshot a descriptive name. Recall should then restore the coordinated state rather than requiring a sequence of manual changes.
 
-`MeasureHalPersistentIOLatency` is retained as the authoritative live virtual
-HAL latency regression. Any change to HAL buffering, timestamps, I/O lifecycle,
-ring transport, or buffer-size handling must rerun this sweep.
+### MIDI-controlled comparison
 
-#### 2. Physical I/O round-trip testing
+Use MIDI Learn for the required gains, mutes, polarity or snapshot recalls. Validate the controller messages in MIDI Bench first when the source device or channel is uncertain.
 
-**Validation status:** completed at 48 kHz on 2026-09-11 using an RME Babyface Pro and a physical output-to-input cable loopback. The previously saved setup-only output was not a latency result and is intentionally not retained.
+### Headless always-on route
 
-##### Purpose
+Configure and verify the route in the GUI, close Matrix Bench and confirm that audio continues through `MatrixBenchEngine`. Reopen the GUI to verify that it reflects the current engine state rather than starting a second independent routing session.
 
-Measure the complete live path involving Matrix Bench and a real Core Audio
-device. This validates behavior that cannot be established by the virtual HAL
-test alone: physical driver buffering, hardware I/O, converter latency and the
-actual external loopback path.
+## 6.27 Troubleshooting
 
-##### Hardware setup
+### No audio although the device is selected
 
-Use a real physical interface and a cable loopback appropriate for its
-line-level I/O. Keep levels conservative and disable processing in the physical
-interface/mixer that would alter timing or the marker signal.
+Check the matrix crosspoints as well as the device/channel selectors. A selected destination does not imply that any input is routed to it.
 
-The virtual Matrix device and the physical Main path must run at the same sample
-rate. The measurement utility intentionally refuses mismatched rates.
+### Device selection is rejected
 
-##### List devices
+Check whether the Matrix virtual device would be used in an unsafe simultaneous Main/Aux configuration. A rejection can be deliberate feedback prevention.
 
-```bash
-cd ~/Projects/audio-matrix
-cmake --build build-hal --target MeasurePhysicalRoundtrip -j6
-./build-hal/MeasurePhysicalRoundtrip --list
-```
+### A device disappeared
 
-##### Run
+Leave the logical configuration intact if the disconnect is temporary. The engine is designed to recover the device when it returns.
 
-```bash
-./build-hal/MeasurePhysicalRoundtrip "<physical-device-name-substring>" <input-channel-1based> <seconds>
-```
+### Bluetooth path feels late
 
-Example shape only:
+Bluetooth adds its own buffering and may also force a different sample-rate/clock-domain path. A small Matrix buffer does not remove downstream Bluetooth latency.
 
-```bash
-./build-hal/MeasurePhysicalRoundtrip "Babyface" 1 5
-```
+### Virtual route has more latency than expected
 
-Choose the input channel that receives the physical cable loopback.
+Verify actual client callback/buffer behavior and distinguish virtual-driver latency from physical-device round-trip latency. Use the appropriate HAL tests or Latency Bench rather than estimating from the selected buffer size alone.
 
-The tool reports, among other fields:
+### Routing changes after swapping devices
 
-- virtual output device;
-- selected physical input;
-- physical input channel;
-- sample rate;
-- virtual Core Audio frame size;
-- physical Core Audio frame size;
-- receive peak;
-- transmitted marker count;
-- received marker count;
-- measured marker timing/displacement statistics when sufficient markers are captured.
+Confirm that the intended channel exists on both devices and inspect the effective channel identity. Matrix Bench preserves valid channel identity rather than intentionally remapping every device to a generic first stereo pair.
 
-##### Buffer sweep
+## 6.28 Validation scope
 
-Physical validation should be repeated at each supported/target buffer size,
-especially:
+Matrix Bench 2.1.1 qualification covers the application, persistent engine, physical-device routing and virtual HAL architecture together.
+
+Relevant validation includes:
+
+- GUI-to-engine operation and persistence;
+- audio continuing without the GUI;
+- launchd engine startup;
+- physical-device hot-plug and return;
+- Main/Aux routing and feedback prevention;
+- virtual-device 8×8 operation;
+- multichannel and stereo-pair use;
+- OS-side non-adjacent speaker/channel selection;
+- snapshot persistence and coordinated recall;
+- MIDI Learn and snapshot recall;
+- Main/Aux compressor operation and gain-reduction metering;
+- supported buffer-size handling;
+- HAL callback tests;
+- persistent-client physical loopback latency tests;
+- representative fixed- and variable-rate physical devices.
+
+The validation demonstrates the qualified implementation under the tested configurations. It does not imply that every third-party Core Audio application, aggregate device or Bluetooth stack has identical buffering behavior.
+
+## 6.29 Measurement and routing record
+
+For a Matrix Bench configuration that needs to be reproduced, record:
 
 ```text
-16 32 64 128 256 512 frames
+Matrix Bench version
+engine / virtual-device version where relevant
+input device and channels
+Main device and channels
+Aux device and channels
+sample rate
+buffer size
+matrix crosspoint gains
+input INV / HPF / LPF settings
+Main/Aux gain and mute
+compressor settings/bypass
+snapshot name if used
+MIDI assignments if relevant
+virtual-channel mapping
+physical wiring
 ```
 
-Record the Matrix Bench quantum used for every run and how it was confirmed.
-For the reference sweep below, the active quantum was changed manually and
-confirmed in the running Matrix Bench UI. Separate Core Audio frame-size
-property readbacks from the measurement process are not authoritative for the
-active Matrix Bench client quantum.
-
-##### Recorded 48 kHz reference sweep
-
-The Matrix Bench buffer quantum was changed manually in the running UI and
-confirmed in the application info display before each measurement.
-
-| Matrix Bench quantum | Median physical round-trip |
-| ---: | ---: |
-| 16 | 147.512-151.952 frames / 3.073-3.166 ms across three valid runs |
-| 32 | 163.166 frames / 3.399 ms |
-| 64 | 263.872 frames / 5.497 ms |
-| 128 | 457.538 frames / 9.532 ms |
-| 256 | 1035.586 frames / 21.575 ms |
-| 512 | 1839.860 frames / 38.330 ms |
-
-All recorded sweep points produced a valid physical return signal and eight
-paired marker events. Full results and test-path details are retained in
-`latency-results/physical-48k-20260911-final.txt`.
-
-The Core Audio frame-size properties observed by the physical measurement
-process remained at 512 frames during the sweep. Those separate property
-readbacks are not used as evidence of the active Matrix Bench client quantum.
-The persistent same-client HAL test in section 1 independently verifies the
-actual IOProc callback quantum.
-
-##### PASS criteria
-
-A physical run is valid only when:
-
-- the intended physical device and loopback channel are unambiguous;
-- virtual and physical Main-path sample rates match;
-- the requested/effective buffer configuration is recorded;
-- transmitted markers are observed at the physical input;
-- the receive level is safely above the detection floor and not clipping;
-- enough markers are captured for a stable result;
-- repeated measurements are consistent within the expected hardware/driver
-  variation.
-
-Physical latency is not expected to equal the virtual HAL `2 * Q` result.
-It includes physical Core Audio driver buffering and hardware converter/path
-latency. Compare physical results only with runs using the same documented
-hardware topology and rate/buffer configuration unless the comparison is
-explicitly intended to measure those differences.
-
-##### Saving results
-
-Keep significant physical validation runs under:
-
-```text
-latency-results/
-```
-
-Use filenames containing the path/rate/date where practical. The result file
-must contain enough setup information to reproduce the measurement.
-
-#### 3. Application processing regression
-
-The direct steady-state Matrix engine processing path is separately tested by
-`ApplicationPathLatencyTests`. It verifies zero additional application-level
-block displacement for the covered callback sizes.
-
-This is a third measurement point and must not be substituted for either the
-live virtual HAL test or the physical round-trip test.
-
-#### 4. Pre-release latency validation
-
-Before a release that changes audio transport or device handling:
-
-```bash
-cd ~/Projects/audio-matrix
-cmake --build build-hal -j6
-ctest --test-dir build-hal --output-on-failure
-./build-hal/MeasureHalPersistentIOLatency 3
-```
-
-Then perform the documented physical round-trip sweep on the release validation
-hardware and save the significant results in `latency-results/`.
-
-Automated/unit tests can protect deterministic code behavior. Live HAL and
-physical-device measurements remain required for claims about the actual Core
-Audio and hardware paths.
-
-#### 5. Matrix Bench 2.1.0 release regression (2026-09-12)
-
-The 2.1.0 final Main/Aux master stages are sample-wise attenuation with de-click ramping. They add no buffering, lookahead or additional audio callback stage.
-
-After the 2.1.0 audio-path changes, the persistent virtual-HAL test completed two full 48 kHz sweeps at 16, 32, 64, 128, 256 and 512 frames. Both sweeps passed with observed callback quantum equal to the requested quantum, correlation 1.0 and loopback displacement exactly `2 * Q` at every point.
-
-Two additional RME Babyface physical-path spot checks produced valid return signals and eight paired marker events each:
-
-| Spot check | Median frames | Median ms | MAD ms |
-| ---: | ---: | ---: | ---: |
-| 1 | 145.850 | 3.038542 | 0.030125 |
-| 2 | 152.574 | 3.178625 | 0.020125 |
-
-The physical tool reported both virtual and physical Core Audio frame-size properties as 512 during these spot checks. These measurements therefore confirm that the 2.1.0 physical path remains consistent with the established Babyface round-trip baseline, but they are not a new authoritative 16-frame property-state measurement and do not replace the complete 2.0.1 physical sweep documented above.
-
-#### 6. Matrix Bench 2.1.1 final qualification (2026-09-13)
-
-The 2.1.1 release qualification repeated the complete RME Babyface physical round-trip sweep at 48 kHz. The physical loopback was Analog Out 1 to Analog In 1, with the Matrix path routed to Babyface Analog Out 1. Every point produced eight paired marker events with a stable return signal.
-
-| Matrix Bench quantum | Median frames | Median ms |
-| ---: | ---: | ---: |
-| 16 | 147.908 | 3.081 |
-| 32 | 172.934 | 3.603 |
-| 64 | 315.020 | 6.563 |
-| 128 | 492.592 | 10.262 |
-| 256 | 949.968 | 19.791 |
-| 512 | 1944.856 | 40.518 |
-
-As in the established physical procedure, the measurement process reported 512-frame Core Audio properties while the running Matrix Bench engine was independently confirmed at each effective 16-512 quantum. These cross-process property values are not used to infer the active Matrix Bench callback size.
-
-The persistent virtual-HAL test also completed two full 48 kHz 16-512 sweeps during 2.1.1 qualification. After the final package-only clean installation, two additional complete sweeps were run against the installed HAL. All four sweeps passed at 16, 32, 64, 128, 256 and 512 frames with requested/property/callback quantum agreement, correlation 1.0 and virtual loopback displacement exactly `2 * Q`.
-
-The final package-installed HAL passed strict `codesign --verify --deep --strict` verification. Mixed-rate 44.1 kHz / 48 kHz output switching and recovery also passed manual audible validation.
+For latency-sensitive work, add the measured physical or virtual path latency rather than assuming it from the selected buffer size.
 
 # 7. MIDI Bench
 
