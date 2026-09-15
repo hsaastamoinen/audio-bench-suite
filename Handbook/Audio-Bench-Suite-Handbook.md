@@ -2787,7 +2787,7 @@ The qualified buffer set is:
 16 / 32 / 64 / 128 / 256 / 512
 ```
 
-The physical qualification path used the RME Babyface Pro at 48 kHz.
+The physical qualification path used the RME Babyface Pro at 48 kHz. The persistent-client qualification covered 16, 32, 64, 128, 256 and 512 frames with the same client performing SetBufferFrameSize, starting its IOProc, verifying the observed callback size, measuring the physical loopback, and then destroying the client.
 
 This separation prevents a successful property/API call from being mistaken for proof of real end-to-end timing.
 
@@ -3354,7 +3354,7 @@ Main and Aux can target independent physical devices with independent clocks.
 
 When clocks differ, Matrix Bench uses the architecture required to bridge those output domains. The path is no longer equivalent to one interface running all channels from one clock.
 
-For precision measurements, simplify to one clock domain when possible. If independent devices are part of the system under test, document them as such.
+For precision measurements, simplify to one clock domain when possible. If independent devices are part of the system under test, document them as such. Matrix Bench's independent-output path uses asynchronous sample-rate conversion so Main and Aux can remain active on devices whose clocks are not locked to each other.
 
 ## 10.31 Matrix snapshot recall sounds wrong
 
@@ -3788,13 +3788,15 @@ Qualified selectable buffer sizes are:
 16 / 32 / 64 / 128 / 256 / 512
 ```
 
-The Matrix virtual device provides 8 inputs and 8 outputs to macOS audio clients.
+The Matrix virtual device provides 8 inputs and 8 outputs to macOS audio clients. Multichannel-aware software can address all eight channels; ordinary stereo use can use pairs 1-2, 3-4, 5-6 or 7-8.
 
 The persistent engine service label is:
 
 ```text
 works.60n.matrixbench.engine
 ```
+
+The GUI installs/starts that service as needed; the audio engine is not owned by the GUI process.
 
 The GUI is a control surface for the persistent engine; closing it should not stop qualified headless routing.
 

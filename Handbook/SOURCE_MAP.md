@@ -35,3 +35,6 @@ The handbook reorganizes source documentation for publication and cross-suite us
 Before publication, version-specific behavior and numerical qualification claims are checked against the listed project documents rather than against earlier handbook wording. The handbook is macOS-first. Roadmap items are included only when the corresponding behavior is implemented and validated.
 
 The MIDI Bench 2.0.0 command-file reference is taken from `midi-bench/README.md`: `.mbmidi` with required `MIDI-BENCH-FILE 1.0` header, `WAIT` delays, optional final `LOOP`, and Browse/Edit/Run/Stop/Syntax controls.
+
+### Matrix Bench 2.1.1 consistency check
+Checked against `audio-matrix/README.md` and `audio-matrix/docs/LATENCY_TESTING.md`. Publication-sensitive points include per-output-device routing identity, the persistent launchd engine, unavailable-device name retention, 8x8 virtual-device channel use, virtual feedback rejection/recovery, independent-output clock handling, and persistent-client physical latency qualification across 16/32/64/128/256/512-frame buffers.
