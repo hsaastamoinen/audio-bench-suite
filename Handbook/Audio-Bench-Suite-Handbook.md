@@ -2952,25 +2952,579 @@ A reference number without its test definition is not useful qualification evide
 
 # 10. Troubleshooting and measurement pitfalls
 
-## 10.1 No signal or implausibly low level
+Troubleshooting a measurement system is easiest when the problem is divided into layers. Avoid changing several settings at once. Start with the simplest known path, establish where the expected signal or behavior stops, then add complexity one element at a time.
 
-Check physical routing, selected channels, interface mixer routing, mute state and DUT state.
+A useful order is:
 
-## 10.2 Clipping
+```text
+physical connection
+-> device and channel selection
+-> sample rate / clocking
+-> level and mute state
+-> application routing
+-> DUT state
+-> measurement mode
+-> interpretation
+```
 
-Reduce stimulus or upstream gain. Clipping invalidates many spectral/distortion measurements and can alter correlation behavior.
+When a result is surprising but plausible, verify the setup before explaining the number.
 
-## 10.3 Unexpected latency
+## 10.1 No signal
 
-Separate bare transport latency from timing changes caused by filtering, sample-rate conversion, wireless transport, independent-clock bridging or other processing.
+Work from the physical path inward.
 
-## 10.4 Ambiguous latency
+Check:
 
-Do not force a number. Narrow or strongly periodic responses can support multiple plausible timing peaks. If extended analysis still rejects the result, the available signal does not support a sufficiently unique timing interpretation under the current conditions.
+1. source/generator is actually running;
+2. correct physical output is connected;
+3. DUT input and output are active;
+4. correct interface input is selected;
+5. interface mixer is not muting or rerouting the return;
+6. correct application input/channel is selected;
+7. Matrix crosspoint exists if Matrix Bench is in the path;
+8. Main/Aux mute and gain are correct;
+9. the DUT has not changed state through MIDI or preset recall.
 
-## 10.5 Matrix feedback
+A device being visible in a selector does not prove that the intended channel carries signal.
 
-Treat physical and virtual routing as a complete graph. Avoid returning an output into an input path that is simultaneously routed back to that output unless feedback is intentionally under test.
+## 10.2 Implausibly low level
+
+A low reading can be real, but first exclude accidental attenuation.
+
+Inspect:
+
+- Signal Bench Output Level;
+- interface output and input gain;
+- DUT input/output controls;
+- Matrix crosspoint gain;
+- Matrix Main/Aux destination gain;
+- active filters;
+- Spectral Bench Input Gain;
+- balanced/unbalanced wiring where relevant.
+
+Spectral Bench Input Gain changes the samples entering the analyzer. Its dB viewport controls do not. Do not use viewport movement to compensate for a physically weak measurement signal.
+
+## 10.3 Clipping
+
+Clipping invalidates many spectral and distortion measurements and can also degrade correlation-based timing.
+
+Look for clipping at every stage, not only the final application meter:
+
+```text
+generator
+-> interface output
+-> DUT input
+-> DUT internal processing
+-> DUT output
+-> interface input
+-> Matrix processing if present
+-> analyzer
+```
+
+Reduce stimulus or upstream gain until the complete path has adequate headroom.
+
+A lower clean signal is generally more useful than a louder clipped one.
+
+## 10.4 Noise floor is unexpectedly high
+
+First determine whether the noise belongs to the DUT, the analog path or the measurement configuration.
+
+Useful checks are:
+
+- terminate or disconnect the DUT input as appropriate;
+- compare direct loopback with the DUT path;
+- reduce unnecessary analog gain;
+- check for ground or cabling problems;
+- bypass processing not under test;
+- verify that Spectral Bench Input Gain is not being mistaken for a physical SNR improvement;
+- compare left/right or reference/DUT channels where the setup permits.
+
+For THD+N, preserve the measurement bandwidth. A noise number without its bandwidth definition is incomplete.
+
+## 10.5 Wrong frequency or missing high-frequency content
+
+Check the sample rate first.
+
+Nyquist frequency is half the sample rate. A requested or expected component above Nyquist cannot appear as a valid in-band component.
+
+Also inspect:
+
+- DUT filters;
+- Signal Bench broadband HPF/LPF;
+- Matrix input HPF/LPF;
+- fixed-rate hardware;
+- sample-rate conversion in the path;
+- the selected Spectral Bench frequency range.
+
+For harmonic measurements, higher harmonics can legitimately fall outside the measurable band.
+
+## 10.6 Sample-rate mismatch
+
+Different devices can impose different rates. The qualified Quad Cortex path operates at 48 kHz, while the tested JBL Bluetooth path operates at 44.1 kHz.
+
+If a device refuses a configuration or the path behaves differently after a device swap:
+
+1. determine the actual rate required by each device;
+2. determine which application/device owns the clock;
+3. check whether Matrix Bench is bridging independent output clocks;
+4. verify the actual rate used by the measurement application;
+5. repeat the reference measurement after the topology is stable.
+
+Do not compare sample counts across different sample rates without converting them to physical time.
+
+## 10.7 Buffer size did not produce the expected latency
+
+A selected buffer size is not end-to-end latency.
+
+The complete path can include:
+
+- client callback buffering;
+- driver safety buffering;
+- converter delay;
+- DSP;
+- asynchronous bridging;
+- sample-rate conversion;
+- virtual-device buffering;
+- wireless buffering.
+
+Verify that the device/client accepted the requested buffer and measure the actual path.
+
+Matrix Bench qualification explicitly distinguishes HAL buffer properties, actual callback frame counts and physical loopback latency.
+
+## 10.8 Bluetooth feels late
+
+That can be entirely normal.
+
+Bluetooth audio adds buffering outside the application's selected processing buffer. A 16-sample application buffer does not imply a 16-sample Bluetooth path.
+
+If Bluetooth is only being used for monitoring, keep it outside latency-critical conclusions. If Bluetooth itself is the DUT, measure and report the complete wireless path.
+
+## 10.9 Spectral trace looks unstable
+
+For broadband noise, instantaneous FFT bins naturally fluctuate.
+
+Use averaging and, where appropriate, Noise Smooth to improve visual readability. Peak Hold can help expose excursions.
+
+Do not mistake a smoother display for additional measurement bandwidth or a changed source signal.
+
+For a discrete tone that should be stable, investigate clipping, clocking, DUT modulation, source stability and window/FFT choices instead of merely increasing averaging.
+
+## 10.10 A spectral peak is not at the expected level
+
+Check the measurement definition before treating the difference as calibration error.
+
+Relevant factors include:
+
+- window coherent gain;
+- FFT-bin alignment;
+- whether the quantity is amplitude or power;
+- analyzer mode;
+- Input Gain;
+- DUT gain;
+- generator Output Level.
+
+Spectral Bench applies its documented window/calibration semantics. Use the defined single-tone measurement mode when the goal is a calibrated tone measurement rather than estimating amplitude visually from an arbitrary spectrum bin.
+
+## 10.11 THD looks wrong
+
+Confirm that:
+
+- the fundamental is valid and sufficiently above noise;
+- the DUT is not clipping;
+- the selected mode matches the generated tone;
+- the relevant harmonics remain below Nyquist;
+- no unrelated tone is being interpreted as DUT distortion.
+
+THD is based on the documented harmonic definition. It is not interchangeable with THD+N.
+
+When comparing devices, keep stimulus frequency, level and measurement conditions identical.
+
+## 10.12 THD+N looks wrong
+
+THD+N includes noise within the documented measurement bandwidth.
+
+A wider bandwidth can produce a larger THD+N value even when harmonic distortion is unchanged. Preserve the bandwidth with every comparison.
+
+If THD is normal but THD+N is unexpectedly high, investigate analog noise, gain staging, grounding, interface noise and the defined bandwidth before assuming a harmonic-distortion problem.
+
+## 10.13 IM products appear to be missing
+
+For CCIF/DFD-style and SMPTE-style measurements, verify that Signal Bench and Spectral Bench are using matching defined modes.
+
+Some products may be unavailable when they fall beyond Nyquist.
+
+The suite reports selected products rather than claiming a universal standards-defined aggregate IM percentage. Do not infer a missing aggregate metric from the selective product display.
+
+## 10.14 Referenced sweep is not flat in direct loopback
+
+A direct dual-channel loopback should be the first diagnostic.
+
+Check:
+
+- reference and DUT channels are not swapped;
+- both paths use equivalent cabling/gain;
+- no Matrix processing is active on one path;
+- interface mixer routing is symmetrical;
+- sample rate is stable;
+- the DUT really has been removed from the DUT path.
+
+Small residual channel mismatch can be physical. The qualified Spectral Bench direct-loopback magnitude repeatability was extremely small, but qualification does not imply every interface channel pair is perfectly identical.
+
+## 10.15 Raw phase has a large slope
+
+A constant transport delay appears as a phase slope with frequency. This is expected in Raw phase.
+
+Use the phase reference that matches the question:
+
+- Raw to retain complete measured phase;
+- Auto to remove a response-dependent estimated constant delay;
+- Manual to remove a known independently established delay;
+- Baseline for A/B phase comparison.
+
+Do not interpret a Raw delay slope as evidence that the DUT has an unusual frequency-dependent phase response before accounting for transport.
+
+## 10.16 Auto and Latency Bench disagree
+
+They are not measuring the same quantity in the same way.
+
+Spectral Bench Auto chooses a response-dependent constant-delay compensation for phase display. Latency Bench measures physical relative timing with its deterministic probe/correlation method.
+
+During qualification, Latency Bench measured `1.857 ms` for a path where Spectral Bench Auto estimated about `1.42 ms`. Manual compensation using the independently measured `1.857 ms` produced the expected phase behavior.
+
+A numerical difference is therefore not automatically a fault.
+
+## 10.17 Polarity is reversed
+
+Polarity reversal changes correlation sign, not physical arrival time.
+
+Latency Bench timing selection uses correlation magnitude, so a clean inverted DUT can still produce the same delay.
+
+In Spectral Bench, polarity inversion corresponds to a phase inversion and should be interpreted as part of the transfer response.
+
+Do not "correct" polarity merely to make a latency number appear familiar.
+
+## 10.18 Latency result is unexpectedly large after filtering
+
+A steep filter can add substantial phase/group-delay timing.
+
+Latency Bench measures complete response arrival through the tested path. For a strongly filtered output, that includes the timing consequence of the filter itself.
+
+The qualified 20-160 Hz cases measured much later than the broadband bypass path, and the change was physically consistent with filter phase/group delay.
+
+If the engineering question is bare transport latency, establish it in a broadband/bypass state where possible. If the question is when the filtered output arrives, the filtered complete-response result is the relevant one.
+
+## 10.19 Latency result is rejected as ambiguous
+
+Do not force a number.
+
+Narrow or strongly periodic responses can produce multiple plausible correlation peaks. Latency Bench rejects a result when a sufficiently strong separate candidate competes with the primary candidate.
+
+Try:
+
+1. verify level and clipping;
+2. verify routing and baseline;
+3. repeat the measurement;
+4. use the legitimate DUT bandwidth, not an artificially widened path;
+5. allow automatic extended analysis to run;
+6. if it still rejects, report that the available response does not support a unique timing result under those conditions.
+
+Rejection is preferable to a precise-looking arbitrary peak.
+
+## 10.20 Extended latency analysis was used
+
+Extended analysis is automatic. Its use does not by itself mean the result is poor.
+
+It is intended for paths where the normal broadband probe does not provide sufficiently robust timing evidence, including strongly bandwidth-limited outputs.
+
+Extended analysis uses a longer probe/correlation window and magnitude-matches the captured reference spectrum to the DUT spectrum while preserving DUT phase.
+
+Record that extended analysis was used when documenting the result.
+
+## 10.21 Baseline is stale
+
+A Latency Bench baseline belongs to the setup that created it.
+
+Re-establish it after changes such as:
+
+- interface;
+- sample rate;
+- channels;
+- physical cabling;
+- reference/DUT loop assignment;
+- other changes that alter the fixed path mismatch.
+
+If a difficult DUT result looks suspicious, return to direct/bypass and verify the reference before continuing.
+
+## 10.22 Latency varies between runs
+
+Inspect the reported spread.
+
+Small sub-sample variation can be normal. Large variation can indicate:
+
+- unstable routing;
+- changing DUT state;
+- asynchronous behavior;
+- weak correlation evidence;
+- clipping/noise;
+- wireless buffering;
+- clock-domain effects.
+
+Do not hide variation by reporting only one selected run. Use the median and accompanying statistics.
+
+## 10.23 Matrix device is selected but there is no audio
+
+Device selection and routing are separate.
+
+Check:
+
+- input device/channel;
+- required crosspoint;
+- crosspoint gain;
+- Main/Aux destination device/channel;
+- destination gain;
+- mute;
+- input filters/polarity;
+- compressor/bypass if relevant.
+
+A selected Main or Aux output receives nothing until a crosspoint routes an input to it.
+
+## 10.24 Matrix route changed after a device swap
+
+Channel identity matters.
+
+If a selected channel exists on both devices, Matrix Bench preserves the valid channel identity rather than intentionally collapsing every device to a generic first stereo pair.
+
+Verify the actual available channel indexes on both devices and inspect the effective routing after the swap.
+
+Do not rebuild the matrix until you know whether the observed behavior is a valid preserved mapping or an actual routing fault.
+
+## 10.25 Matrix device disappeared
+
+For a temporary disconnect, preserve the intended logical configuration.
+
+MatrixBenchEngine is designed to retain device identity and recover the route when the device returns.
+
+If recovery fails:
+
+1. verify the device is visible to macOS;
+2. verify its sample rate/availability;
+3. verify the engine is running;
+4. reopen Matrix Bench and inspect the retained device/channel state;
+5. only then rebuild routing if necessary.
+
+## 10.26 Matrix audio stops when the GUI closes
+
+That is not expected in the qualified headless architecture.
+
+Audio routing should continue through `MatrixBenchEngine` after the GUI closes.
+
+If it stops, investigate the engine/service rather than treating the GUI as the audio engine. Verify the `works.60n.matrixbench.engine` launchd service and the engine's runtime state.
+
+## 10.27 Matrix GUI cannot reach the engine
+
+The GUI and engine communicate through the runtime socket under `/tmp`.
+
+If the engine is not running or the socket is unavailable, the GUI cannot control the persistent routing state.
+
+Check the installed engine/service first. Repeatedly launching additional GUI copies does not replace a missing engine.
+
+## 10.28 Virtual Matrix route has unexpected channels
+
+The Matrix virtual device is 8-in/8-out and can be used as multichannel audio or stereo pairs.
+
+Verify channel selection in both Matrix Bench and the receiving/sending macOS application. For OS-side mappings, also inspect Audio MIDI Setup or the relevant macOS channel configuration.
+
+Non-adjacent channel mappings can be valid. Do not assume every application uses only channels 1-2.
+
+## 10.29 Virtual routing creates feedback
+
+Treat the virtual path exactly like physical patch cables.
+
+A loop can occur when an application's output enters Matrix Bench and Matrix Bench routes it back to an input that the same application is monitoring or retransmitting.
+
+Mute or remove one edge of the loop before increasing gain.
+
+Matrix Bench also rejects specific unsafe simultaneous virtual Main/Aux configurations as a feedback-prevention measure. A rejection message can therefore indicate correct protection rather than device failure.
+
+## 10.30 Independent Matrix outputs drift or behave differently
+
+Main and Aux can target independent physical devices with independent clocks.
+
+When clocks differ, Matrix Bench uses the architecture required to bridge those output domains. The path is no longer equivalent to one interface running all channels from one clock.
+
+For precision measurements, simplify to one clock domain when possible. If independent devices are part of the system under test, document them as such.
+
+## 10.31 Matrix snapshot recall sounds wrong
+
+First verify the snapshot contents rather than repeatedly recalling it.
+
+Snapshots can restore coordinated routing, mutes, polarity, filters and gains. A saved state can therefore be consistently wrong if it was captured incorrectly.
+
+Check the named snapshot against the intended:
+
+```text
+devices/channels
+crosspoints
+gains
+mutes
+INV
+HPF/LPF
+destination state
+```
+
+Atomic recall minimizes audible intermediate states; it cannot make an incorrectly stored state correct.
+
+## 10.32 Matrix compressor changes a measurement
+
+Main and Aux master compressors are real processing.
+
+If the purpose is to measure the external DUT without Matrix dynamics processing, bypass the compressor on the measurement destination.
+
+Also inspect makeup gain and gain-reduction meters. A compressor can change level, spectrum and apparent DUT behavior even when routing itself is correct.
+
+## 10.33 MIDI Bench shows no incoming messages
+
+Check:
+
+1. physical MIDI connection;
+2. MIDI IN device;
+3. channel;
+4. whether the controller is actually transmitting;
+5. Raw bytes.
+
+Raw-byte display helps distinguish "no traffic" from "traffic exists but is not the message type expected."
+
+If available, compare with the deterministic test sender to separate MIDI Bench behavior from the physical controller.
+
+## 10.34 MIDI target does not respond
+
+Verify MIDI OUT, channel and message type.
+
+For CC, verify controller number and value. For PC, verify the actual Program Change value and the receiving device's numbering convention.
+
+If a physical controller operates the target, capture that known-working message in MIDI Bench and reproduce it manually. This isolates the target from the controller.
+
+## 10.35 Program number appears off by one
+
+MIDI program numbering and front-panel preset numbering are not universally displayed with the same convention.
+
+Verify the actual MIDI Program Change value before adding or subtracting one.
+
+Document the MIDI value and the DUT's displayed preset separately when ambiguity matters.
+
+## 10.36 Command-file Run is disabled
+
+The selected MIDI Bench command file is invalid.
+
+Correct the syntax and allow the application to revalidate it. Run should become available again when the file is valid.
+
+Do not work around validation by trying to execute only the lines that "look right." Deterministic bench control depends on the whole sequence being understood.
+
+## 10.37 MIDI loop changes the DUT too quickly
+
+Add explicit `BK`/`SLEEP` delays.
+
+A MIDI message can be transmitted quickly while the hardware needs substantially longer to switch presets, relays, converters or DSP state.
+
+For measurement work, settling time belongs to the test definition.
+
+## 10.38 MIDI state and audio state do not line up in time
+
+MIDI Bench timestamps the message activity; it does not prove when the DUT's audio path finished changing.
+
+Do not assume the MIDI timestamp is the audio transition timestamp.
+
+If the timing relationship matters, measure it separately or use a conservative known settling interval before capturing the audio result.
+
+## 10.39 Signal Bench output is unexpectedly quiet
+
+Check Output Level and any active broadband filtering before increasing downstream gain.
+
+Also inspect:
+
+- selected signal mode;
+- Dual Sine individual tone levels;
+- mute;
+- slicer state;
+- Pick Attack behavior where applicable;
+- interface output level.
+
+Noise RMS is intentionally below peak/full scale. Do not expect Pink or White noise to show the same RMS as a full-scale sine.
+
+## 10.40 Pink-noise mean is not exactly zero
+
+A finite Pink-noise record does not have to average exactly to zero.
+
+The documented deterministic validation produced a finite-record mean of approximately `+0.0499`; this is not treated as a DC failure because the generator contains very slow components.
+
+Use the documented spectral/RMS validation criteria rather than imposing an inappropriate zero-mean criterion on one finite capture.
+
+## 10.41 A result changed after reopening an application
+
+Check persisted state before assuming nondeterminism.
+
+The Bench applications intentionally persist relevant configuration. A reopened tool can therefore return to a previous device, channel, gain or mode rather than a generic default.
+
+For a formal measurement, record the state explicitly and verify it at the start of the session.
+
+## 10.42 A result is too perfect
+
+Treat implausibly perfect results with the same suspicion as obviously bad ones.
+
+Examples include:
+
+- exactly zero phase where a physical path should contain delay;
+- zero run-to-run variation after a topology change;
+- an impossibly flat DUT response;
+- distortion below the known measurement floor;
+- latency equal to a selected buffer size by coincidence.
+
+Check whether the measurement is accidentally observing the reference path, a bypass route, a virtual shortcut or the wrong channel.
+
+A believable number is not evidence that the intended DUT was measured.
+
+## 10.43 Two tools give different numbers
+
+First ask whether they are defining the same quantity.
+
+Examples:
+
+- Spectral Auto phase delay versus Latency Bench physical latency;
+- filtered complete-response timing versus broadband transport timing;
+- spectrum-bin level versus calibrated single-tone measurement;
+- THD versus THD+N;
+- selected buffer size versus physical round-trip latency.
+
+Resolve the definitions before looking for an implementation fault.
+
+## 10.44 After a surprising result
+
+Use this recovery sequence:
+
+```text
+1. Save the surprising result and setup notes.
+2. Do not immediately "fix" the DUT or measurement settings.
+3. Return to the simplest known reference.
+4. Verify devices, channels, sample rate and levels.
+5. Repeat the reference.
+6. Reproduce the DUT state with one controlled change.
+7. Repeat the measurement.
+8. Compare the complete evidence, not only the headline number.
+```
+
+Preserving the first surprising result is useful. It may contain the evidence needed to distinguish a real DUT behavior from a setup error.
+
+## 10.45 When to stop troubleshooting
+
+Stop trying to force the expected answer when:
+
+- the instrument correctly rejects the measurement;
+- the physical path cannot support the required bandwidth or level;
+- the DUT behavior is genuinely state-dependent;
+- an independent clock or wireless path is intrinsically variable;
+- the question being asked is not the quantity the selected Bench measures.
+
+At that point, redefine the experiment or report the limitation. Measurement engineering includes knowing when the available evidence does not support a stronger conclusion.
 
 # 11. Technical and publication appendix
 
