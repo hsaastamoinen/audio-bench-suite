@@ -580,1078 +580,140 @@ For measurements that depend on exact spectral interpretation, use Signal Bench 
 
 # 4. Spectral Bench
 
-Spectral Bench is the suite's spectrum and measurement analyzer.
+Spectral Bench 2.1.0 for macOS is the suite's real-time spectrum and audio-measurement analyzer. Its spectrum display is the primary instrument, with calibrated level, tone, harmonic, distortion, intermodulation, sweep and phase measurements layered on the same analysis foundation.
 
+The application is designed around explicit measurement definitions. Display zoom and trace presentation are kept separate from authoritative measurement math, and measurements that require a reference, bandwidth or phase convention expose that convention rather than hiding it.
 
 <!-- FIGURE PLACEHOLDER: Figure 4.1
 Application: Spectral Bench
 Subject: Main analyzer window
-Show: Spectrum display, input selection, FFT/averaging controls, level controls and measurement readouts.
+Show: Spectrum display, input selection, FFT/window/averaging controls, viewport controls and measurement readouts.
+Crop: Application window only.
 Suggested size: full text width
-Caption: Spectral Bench configured for live spectrum inspection.
+Caption: Spectral Bench 2.1.0 configured for live spectrum inspection.
 -->
 
-**Figure 4.1.** Spectral Bench configured for live spectrum inspection.
+**Figure 4.1.** Spectral Bench 2.1.0 configured for live spectrum inspection.
 
+## 4.1 General setup
 
-## 4.1 Practical measurement guide
+Select the input channel that actually carries the signal under test. Start with **Input Gain = 0 dB** and keep enough headroom that neither the DUT nor the interface clips. For generated sweeps, `-12 dBFS` is a useful general starting level.
 
-#### Purpose
+The normal overview is 20 Hz to 20 kHz, but the viewport can be narrowed substantially without changing the underlying calibrated measurement. Frequency view and dB Top/Floor/Span are display controls. **Input Gain is different:** it changes the samples presented to the analyzer and therefore changes measured dBFS values.
 
-This guide describes the current macOS 2.1.0 measurement workflow. Windows and Linux remain on the validated 1.1.0 baseline and are outside the current roadmap.
+A practical live-spectrum starting point is FFT 16384, Blackman-Harris 4-term, Averaging Off for immediate response or Medium for a steadier trace, Peak Off, Raw trace and Input Gain 0 dB.
 
-This is the practical operating guide for Spectral Bench 2.1.0 on macOS. It describes the main measurements, sensible starting settings, wiring, procedure, and interpretation. The more formal definitions are in `MEASUREMENTS.md`; architecture and qualification evidence are in `ARCHITECTURE.md` and `VALIDATION.md`.
+`Save Result…` (`⌘S`) writes PNG, CSV and TXT companions. The PNG preserves the visual state, while CSV/TXT preserve the numeric and provenance information.
 
-The settings below are starting points, not mandatory constants. Change them when the DUT, sample rate, required resolution, noise floor, or measurement objective calls for it.
+## 4.2 Spectrum analyzer
 
-#### General setup
+The real-time analyzer provides:
 
-- Select the input channel that actually carries the signal being inspected.
-- Start with **Input Gain = 0 dB**. Input Gain changes the samples sent to the analyzer and therefore changes measured dBFS values; it is not merely a display zoom.
-- Keep enough headroom that neither the DUT nor the interface clips. For generated sweeps, **-12 dBFS** is a good general starting level.
-- Use **20 Hz - 20 kHz** as the normal overview unless a narrower view makes the result easier to inspect.
-- dB Top/Floor/Span and frequency view are display controls. Adjust them freely to inspect detail.
-- **Hold** freezes the displayed graph. Peak Hold/Decay is a separate analyzer function.
-- `Save Result...` writes PNG, CSV, and TXT companions. The PNG is the visual record; CSV/TXT are the authoritative numeric summaries.
+- logarithmic frequency display;
+- calibrated dBFS magnitude;
+- FFT sizes 4096, 8192, 16384, 32768 and 65536;
+- Hann, 4-term Blackman-Harris and Flat Top windows;
+- Off/Fast/Medium/Slow averaging;
+- Off/Hold/Decay peak behavior with explicit reset;
+- Raw and Noise Smooth trace presentation;
+- adjustable frequency and dB viewports;
+- a free crosshair with fixed Trace/Cursor readouts.
 
-#### 1. Live spectrum inspection
+The default FFT size is 16384.
 
-**Use for:** seeing spectral content in real time, checking tones, harmonics, interference, hum, bandwidth, and general signal behavior.
+### 4.2.1 Frequency viewport
 
-**Recommended start:** FFT **16384**, **Blackman-Harris**, **Avg Off** for immediate response or **Avg Medium** for a steadier trace, **Peak Off**, **Trace Raw**, Input Gain **0 dB**, 20 Hz - 20 kHz.
+macOS 2.1.0 includes logarithmic presets covering useful low-, mid- and high-frequency regions, plus a Custom minimum/maximum view with adaptive 1-2-5 engineering grid generation. The frequency axis remains logarithmic.
 
-**Procedure:** feed the signal to the selected input, choose a frequency/dB view that exposes the area of interest, then enable averaging or peak behavior only when it helps answer the measurement question. Use the crosshair for a local frequency/level readout.
+Changing the visible frequency range does not change analyzer calibration or measurement bandwidth. It changes what part of the spectrum is shown.
 
-**Interpretation:** the spectrum is calibrated amplitude in dBFS. It is not a dBFS/Hz power-spectral-density display. FFT size changes frequency resolution and update cadence; it does not redefine the basic RMS or sample-peak readings.
+### 4.2.2 dB viewport and Input Gain
 
-#### 2. Noise and noise-floor inspection
+The dB viewport can range from a 120 dB overview down to a 10 dB span. dB Top, Floor and Span are coupled: selecting Top or Floor establishes the zoom anchor, and later Span changes preserve that boundary while moving the other.
 
-**Use for:** broadband noise shape, hum/spurs above the noise floor, and comparative noise inspection.
+**Input Gain**, adjustable from -20 to +40 dB, is not a display control. It modifies the samples entering the analyzer. Use it deliberately and record it when absolute dBFS results matter.
 
-**Recommended start:** FFT **32768** or **65536** when fine spectral resolution matters, **Blackman-Harris**, **Avg Slow**, **Peak Off**, **Trace Noise Smooth** for an easier broadband view, Input Gain **0 dB**. Use **Trace Raw** whenever individual-bin detail matters.
+### 4.2.3 Cursor and trace readout
 
-**Procedure:** remove or mute intentional program/test signals, allow averaging to settle, then adjust the dB viewport so the noise region is readable. Compare like with like: same sample rate, FFT/window, averaging, input gain, and physical gain structure.
+The crosshair reports mouse frequency and dBFS position, the trace level at the same frequency and their signed dB difference. The readout remains in a fixed top-right location so it does not chase the pointer.
 
-**Interpretation/caveat:** Trace Noise Smooth is display-only. The normal spectrum is amplitude-calibrated dBFS, not dBFS/Hz. Do not interpret a single displayed FFT-bin level as a standardized noise-density measurement. The time-domain RMS readout is independent of FFT size/window.
+When a result is saved, the active cursor/trace measurement is included in the PNG, CSV and TXT report.
 
-#### 3. Single-tone level, harmonics, THD and THD+N
+<!-- FIGURE PLACEHOLDER: Figure 4.2
+Application: Spectral Bench
+Subject: Zoomed spectrum with cursor measurement
+Show: Narrow frequency and dB view, crosshair, fixed Trace/Cursor readout and Input Gain control.
+Crop: Application window or spectrum/viewport area only.
+Suggested size: full text width
+Caption: Spectral Bench viewport and cursor controls can inspect detail without changing calibrated measurement math; Input Gain is the exception and acts on analyzer input samples.
+-->
 
-**Use for:** tone level, frequency, H2-H10, THD and THD+N.
+**Figure 4.2.** Viewport zoom and cursor measurement in Spectral Bench.
 
-**Recommended start:** choose **100 Hz**, **1 kHz**, or **10 kHz** when using one of the defined test tones; otherwise use **Manual Tone**. FFT **16384** is a good general start. **Blackman-Harris** is a robust general-purpose window; **Flat Top** is useful when amplitude accuracy for a non-bin-centred tone is the priority. Averaging can remain Off because the numeric measurement path has its own analysis/stabilization.
+## 4.3 FFT calibration and level semantics
 
-**Procedure:** apply a clean sine, select the matching defined mode when applicable, verify that the stimulus is accepted and the fundamental is sensible, then read H2-H10, THD and THD+N. For a more stable result, use **Measure 15 s** in the single-tone modes.
+Spectral Bench distinguishes time-domain level from spectral tone amplitude.
 
-**Interpretation:** harmonic products are reported relative to the fundamental in dBc. THD uses the valid H2-H10 terms. THD+N follows the implemented measurement bandwidth and residual-power definition documented in `MEASUREMENTS.md`. The 15-second helper averages accepted frames in the linear power domain and reports its accepted/total frame count.
+**Sample Peak** is the maximum absolute input sample over the relevant analysis interval. **RMS** is calculated from the time-domain samples. Neither depends on FFT size, FFT window, overlap or averaging.
 
-#### 4. Referenced frequency-response sweep, Transfer
+Spectral tone amplitude comes from the calibrated FFT/fit path. Window coherent gain is explicitly accounted for so that a bin-centered coherent sine reports its intended amplitude. Window equivalent noise bandwidth (ENBW) is also an explicit property because broadband noise and a discrete tone cannot be interpreted with the same per-bin assumptions.
 
-**Use for:** the normal DUT frequency response, with common interface/path response cancelled by a simultaneous reference channel.
+The application does not claim a dBFS/Hz power-spectral-density representation. Broadband noise therefore needs to be interpreted using the analyzer's documented spectrum semantics rather than as if each displayed value were automatically a density measurement.
 
-**Wiring:** Spectral Bench uses two channels. The selected **DUT ch** output goes through the DUT and returns to the same-numbered input. The other output/input channel is the direct reference loop. Both outputs receive the same sample-synchronous sweep.
+## 4.4 FFT windows
 
-**Recommended start:** **20 Hz to 20 kHz**, **5.0 s**, **-12 dBFS**, result **Transfer**.
+The supported windows are Hann, 4-term Blackman-Harris and Flat Top.
 
-**Procedure:** select DUT ch 1 or 2, verify the other channel is the direct reference, run the sweep, then select **Transfer**. No separate reference selector is required; the other channel is automatically the reference.
+Use Blackman-Harris as a strong general-purpose choice when spectral leakage rejection matters. Flat Top is useful when amplitude accuracy for isolated tones is more important than narrow main-lobe width. Hann is a conventional compromise with a relatively narrow lobe and moderate leakage suppression.
 
-**Interpretation:** Transfer is DUT/Reference in dB. Around **0 dB** means equal DUT and reference magnitude. This is the preferred view for DUT frequency response because common physical path and sweep-boundary behavior largely cancel.
+The important engineering point is that changing the window changes leakage, main-lobe width, coherent gain and ENBW. Spectral Bench calibrates the supported windows, but no window removes the underlying time/frequency-resolution tradeoff.
 
-**Qualified range note:** physical validation showed excellent interior-band behavior. Treat the exact sweep endpoints, especially absolute behavior at 20 kHz, more cautiously than the interior band.
+## 4.5 Averaging, Peak Hold and trace presentation
 
-#### 5. Sweep Actual response
-
-**Use for:** inspecting the locally captured DUT sinusoidal amplitude in dBFS rather than a normalized transfer ratio.
-
-**Recommended start:** use the same sweep settings as Transfer, then switch the completed result to **Actual**. No rerun is required.
-
-**Interpretation:** Actual includes the DUT path plus common physical interface/path response and sweep endpoint effects. It is therefore not a replacement for Transfer when the goal is normalized DUT frequency response. Use it when the absolute captured level itself is the quantity of interest.
-
-#### 6. Phase, choosing the correct mode
-
-After a completed sweep, select result **Phase**. `Phase mode` determines how constant delay is treated. Phase is wrapped to +/-180 degrees and low-confidence points may be omitted.
-
-##### Raw
-
-**Use for:** the complete referenced phase with nothing deliberately removed.
-
-Raw preserves fixed DUT transport delay, so a device with latency normally produces a linear phase slope and repeated +/-180-degree wraps. This is the most literal phase view.
-
-##### Auto
-
-**Use for:** a quick, easier-to-read phase view when an automatic alignment estimate is acceptable.
-
-Auto estimates and removes one constant delay. **Comp ms is an estimated phase compensation, not a DUT latency measurement.** DUT response can influence the estimate, so do not use this value as an authoritative latency result.
-
-##### Manual
-
-**Use for:** phase with a known constant transport delay removed.
-
-Enter the known delay in **Comp ms**. If DUT latency is not already known, measure it independently with **60°N Latency Bench** and enter the measured milliseconds here. This is the preferred approach when you want the phase response with an independently measured transport latency removed.
-
-Physical qualification example: the tested Quad Cortex path measured **1.857 ms** in Latency Bench while Spectral Bench Auto estimated about **1.42 ms** for that response. Manual compensation with the independently measured 1.857 ms produced the expected nearly delay-free LPF-off phase. This demonstrates why Auto compensation and measured DUT latency are different quantities.
-
-##### Baseline A/B
-
-**Use for:** measuring the phase change caused by a processing/state change, such as bypass versus filter enabled.
-
-Click **Baseline A/B...**. Spectral Bench guides the two-stage procedure: set the DUT to state A and continue; the app captures/stores the baseline automatically; change the DUT to state B when prompted and continue; the app runs the second sweep and displays B relative to A. Intermediate graphs do not need to be handled manually.
-
-Fixed path delay and unchanged phase response cancel. Physical qualification with LPF off -> 1 kHz LPF on showed the expected filter phase without transport-delay wraps; LPF off -> LPF off produced an essentially 0-degree null.
-
-#### 7. SMPTE-style selective IM products
-
-**Use for:** the implemented 60 Hz + 7 kHz selective intermodulation-product measurement.
-
-**Stimulus:** 60 Hz and 7 kHz with a **4:1 linear amplitude ratio** (about 12.041 dB). Select **SMPTE-style products** and verify the stimulus-status indication before trusting the result.
-
-Spectral Bench reports the defined second- and third-order sideband groups in dBc. It deliberately does **not** claim a normative aggregate SMPTE IMD percentage because that normalization remains outside the currently verified definition.
-
-#### 8. CCIF / DFD-style selective IM products
-
-**Use for:** the implemented 19 kHz + 20 kHz two-tone selective-product measurement.
-
-**Stimulus:** equal-amplitude 19 kHz and 20 kHz tones. Select **CCIF / ITU-R IMD** and verify stimulus validity.
-
-Spectral Bench reports the available 1 kHz, 18 kHz, and 21 kHz products in dBc. The 21 kHz product is available only when it is below Nyquist and within the usable analysis range. The app does not claim normative aggregate CCIF/ITU-R conformance or percentage normalization.
-
-#### 9. Saving and documenting a result
-
-Use **Save Result...** when the graph and measurement state represent what you want to preserve. The three files share a basename:
-
-- PNG: graph as displayed, including applicable cursor/readout state.
-- CSV: machine-readable numeric summary plus sweep/phase sections when a sweep exists.
-- TXT: human-readable measurement report.
-
-The export deliberately distinguishes **Analyzer mode** from **Sweep type**. For example, the live analyzer may currently be in `Manual Tone` while the same saved result also contains a completed `Referenced transfer` sweep. These describe different parts of the application state and are not contradictory.
-
-For phase exports, the selected Raw/Auto/Baseline/Manual mode is recorded. Auto and Manual also record the applied compensation in milliseconds.
-
-#### Quick defaults
-
-For a general first attempt:
-
-- Live spectrum: 16384, Blackman-Harris, Avg Off/Medium, Peak Off, Trace Raw.
-- Noise inspection: 32768-65536, Blackman-Harris, Avg Slow, Trace Noise Smooth.
-- Single tone: 16384, Blackman-Harris; use Flat Top when amplitude accuracy for a non-bin-centred tone is the priority; Measure 15 s for stable statistics.
-- Referenced sweep: 20 Hz-20 kHz, 5 s, -12 dBFS, Transfer.
-- Phase comparison after a DUT setting change: Baseline A/B.
-- Phase with known DUT latency removed: Manual, using an independently measured latency (for example from 60°N Latency Bench).
-- Phase quick-look: Auto, remembering that its Comp ms value is an alignment estimate, not a latency measurement.
-
-## 4.2 Measurement definitions and semantics
-
-#### Status
-
-This document defines the implemented Spectral Bench measurement semantics and calibration rules. The 1.1.0 analyzer/distortion foundation remains applicable, with macOS 2.1.0 adding the released viewport, referenced sweep, Actual-response, and explicit phase-reference semantics documented below.
-
-Where a definition is still deliberately open, it is marked explicitly. Implementation must not silently invent a meaning for an open item.
-
-#### dBFS Conventions
-
-Spectral Bench uses the digital sample full scale, `1.0`, as the amplitude reference.
-
-##### Sample Peak
-
-```text
-Peak_dBFS = 20 * log10(max(abs(x[n])))
-```
-
-A sample whose absolute value reaches 1.0 is 0 dBFS sample peak.
-
-##### RMS
-
-```text
-RMS = sqrt(mean(x[n]^2))
-RMS_dBFS = 20 * log10(RMS)
-```
-
-Under this convention, a sine wave with peak amplitude 1.0 has:
-
-```text
-sample peak =  0.0000 dBFS
-RMS         = -3.0103 dBFS
-```
-
-This relationship is intentional and must be documented in the UI/help material rather than hidden by a sine-specific RMS reference convention.
-
-##### Spectral Tone Amplitude
-
-A sinusoid's displayed spectral amplitude is its fitted/estimated peak amplitude relative to sample full scale.
-
-Therefore a sine with peak amplitude 0.5 is:
-
-```text
-20 * log10(0.5) = -6.0206 dBFS
-```
-
-##### Harmonic / IMD Products
-
-Individual distortion products are normally reported in dBc relative to the applicable fundamental/reference tone:
-
-```text
-Product_dBc = 20 * log10(Vproduct / Vreference)
-```
-
-#### Analysis Frame and Overlap
-
-Supported FFT sizes:
-
-- 4096
-- 8192
-- 16384
-- 32768
-- 65536
-
-Default FFT size:
-
-- 16384
-
-The FFT analysis hop is fixed at one quarter of the FFT size:
-
-```text
-hop = N / 4
-```
-
-This gives 75% overlap.
-
-Overlap is not a user control in Spectral Bench 1.1.0.
-
-The analysis engine runs independently of UI repaint timing.
-
-#### Windows
-
-Spectral Bench 1.1.0 supports:
-
-- Hann
-- 4-term Blackman-Harris
-- Flat Top
-
-No other windows are included in 1.1.0 without a concrete measurement requirement.
-
-Each window definition must expose at least:
-
-- coefficients
-- coherent gain
-- sum of squared coefficients
-- equivalent noise bandwidth (ENBW)
-
-##### Coherent Gain
-
-```text
-CG = (1/N) * sum(w[n])
-```
-
-##### ENBW
-
-In FFT bins:
-
-```text
-ENBW_bins = N * sum(w[n]^2) / (sum(w[n]))^2
-```
-
-#### Spectrum Calibration
-
-The displayed one-sided amplitude spectrum must account for:
-
-- FFT normalization
-- one-sided positive-frequency scaling
-- coherent gain
-- special treatment of DC
-- special treatment of Nyquist
-
-The exact-bin reference requirement is:
-
-A bin-centred sine with peak amplitude 0.5 shall read approximately -6.0206 dBFS for every supported FFT size and window, within the validation tolerance.
-
-The spectrum display calibration and noise-power integration calibration are separate concepts.
-
-Tone amplitude uses coherent-gain calibration.
-
-Integrated broadband/noise power uses window-energy / Parseval-consistent normalization.
-
-#### Spectrum Frequency Axis
-
-Default visible range:
-
-- 20 Hz to 20 kHz
-
-Optional upper display range:
-
-- toward Nyquist
-
-The actual upper frequency cannot exceed Nyquist.
-
-The x-axis is logarithmic.
-
-#### 1.2.0 selectable spectrum views and trace presentation
-
-Spectral Bench 1.2.0 provides user-selectable **20 Hz to 20 kHz** and **100 Hz to 10 kHz** spectrum views.
-
-It also provides user-selectable **Raw** and **Noise Smooth** trace presentation. Noise Smooth is intended for broadband-noise inspection, particularly to reduce the visually thick and highly variable White-noise trace at higher frequencies.
-
-These controls operate on presentation, not on the calibrated measurement semantics. They do not silently change numeric RMS/peak results, tone fitting, harmonic amplitudes, THD, THD+N, CCIF/SMPTE selective products, confidence decisions, cursor source data, or exported numeric measurements.
-
-The 1.2.0 display layer was validated on macOS and is part of the later macOS 2.x line. Windows and Linux intentionally remain at the validated 1.1.0 baseline; no update cycle is currently scheduled.
-
-#### Spectrum Magnitude Axis
-
-The spectrum is displayed in dBFS.
-
-The useful display floor is adjustable. The intended practical range includes approximately -120 dBFS and, where measurement conditions support it, approximately -140 dBFS.
-
-Display floor does not change measurement bandwidth or measurement math.
-
-#### Averaging
-
-Spectrum averaging operates on linear power, never directly on dB values.
-
-For each bin:
+Averaging operates in **linear power** and is converted to dB afterward:
 
 ```text
 Pavg_new = alpha * Pavg_old + (1 - alpha) * Pnew
-```
-
-with:
-
-```text
 alpha = exp(-hopSeconds / tau)
 ```
 
-Spectral Bench 1.1.0 averaging modes are:
+The implemented time constants are:
 
-```text
-Off       tau = 0
-Fast      tau = 0.25 s
-Medium    tau = 1.00 s
-Slow      tau = 4.00 s
-```
+| Mode | Time constant |
+| --- | ---: |
+| Fast | 0.25 s |
+| Medium | 1.00 s |
+| Slow | 4.00 s |
 
-Off uses the current spectrum directly.
+Peak behavior is Off, Hold or Decay. Decay uses 20 dB/s, and Reset clears stored peak state.
 
-The time constants are independent of FFT size because `alpha` is derived from the actual hop duration.
+**Noise Smooth** is display-only. It is useful for visually stabilizing broadband Pink or White noise, especially at high frequencies. It does not modify the calibrated measurement snapshot, cursor source data, harmonic analysis, THD, THD+N, IM products or authoritative numeric export.
 
-#### Spectrum Peak Hold
+`Hold`, which freezes the displayed graph, is also distinct from Peak Hold/Decay.
 
-Spectral Bench 1.1.0 modes:
+## 4.6 Single-tone measurements
 
-- Off
-- Hold
-- Decay
+Spectral Bench provides defined 100 Hz, 1 kHz and 10 kHz modes plus Manual Tone.
 
-##### Hold
+For an applicable single-tone measurement, the panel can report:
 
-Each displayed bin retains the maximum value seen since the last reset.
+- input RMS and sample peak;
+- nominal frequency where defined;
+- measured fundamental frequency;
+- fitted fundamental amplitude;
+- H2 through H10 where valid below Nyquist;
+- each harmonic relative to the fundamental in dBc;
+- THD;
+- THD+N;
+- actual THD+N bandwidth.
 
-##### Decay
+Defined-frequency modes search around the expected tone rather than simply choosing any dominant spectral component. Manual Tone performs dominant-tone detection across the normal analysis range. A tone-confidence requirement prevents an arbitrary weak spectral maximum from being promoted to a valid measurement.
 
-A held spectral peak falls at:
+Signal Bench provides matching deterministic 100 Hz, 1 kHz and 10 kHz stimulus presets.
 
-```text
-20 dB/s
-```
+## 4.7 Harmonics and THD
 
-unless replaced by a newer higher value.
-
-##### Reset
-
-The UI provides an explicit reset action.
-
-#### Basic Input RMS
-
-Input RMS is calculated in the time domain and is independent of FFT size, window, overlap, and spectral averaging.
-
-The displayed RMS uses exponential averaging of linear mean-square power with:
-
-```text
-tau = 400 ms
-```
-
-Conversion to dBFS occurs after averaging.
-
-#### Basic Input Sample Peak
-
-Input sample peak is calculated in the time domain and is independent of the FFT.
-
-The displayed sample peak is the maximum absolute input sample observed during the most recent rolling 1.0 s interval.
-
-This is sample peak, not true peak.
-
-#### Fundamental Frequency Strategy
-
-There are two measurement cases.
-
-##### Defined-Tone Modes
-
-For 100 Hz, 1 kHz, 10 kHz and defined IMD stimuli, the nominal frequency is known from the test definition.
-
-The FFT spectrum is used to locate the local spectral peak around the expected tone.
-
-The initial search region is:
-
-```text
-max(±1%, ±4 FFT bins)
-```
-
-around the expected frequency, clipped to the valid analysis range.
-
-The detected peak is then refined by a sinusoidal least-squares fit as described below.
-
-##### Manual Single-Tone Mode
-
-Manual Single Tone assumes that the input is intended to contain one dominant test tone.
-
-The initial fundamental candidate is the strongest valid local spectral peak from:
-
-```text
-20 Hz to min(20 kHz, Nyquist)
-```
-
-DC is excluded.
-
-The candidate is refined using the same sinusoidal fit as defined-tone mode.
-
-Spectral Bench 1.1.0 does not attempt general-purpose musical pitch tracking or missing-fundamental inference.
-
-##### Tone confidence
-
-A candidate stimulus tone is not considered valid merely because a spectral bin is above a very low numerical floor. The candidate must also be resolved above its nearby spectrum.
-
-For the current 1.0 validation rule, the candidate peak must be at least:
-
-```text
-12 dB
-```
-
-above the median local spectral floor measured in a surrounding window. The peak main lobe is excluded from that local-floor estimate. A very low absolute floor remains as a numerical sanity backstop, but does not by itself establish a valid stimulus.
-
-This confidence rule applies to single-tone fundamentals and to both required carriers of the defined IMD stimuli. It is a stimulus-validity test only; low-level distortion products are still measured with targeted searches and are not required to satisfy the carrier prominence threshold.
-
-#### Sinusoidal Fit
-
-Precision tone measurements must not depend solely on the height of a single FFT bin.
-
-The FFT provides the initial frequency estimate.
-
-The measurement engine then performs a least-squares sinusoidal fit on the unwindowed analysis samples near that frequency.
-
-For a trial angular frequency `omega`, fit:
-
-```text
-x[n] ~= a*cos(omega*n) + b*sin(omega*n) + c
-```
-
-where the DC term `c` prevents DC offset from biasing the tone fit.
-
-The fitted peak amplitude is:
-
-```text
-Apeak = sqrt(a^2 + b^2)
-```
-
-The frequency is refined locally to minimize residual squared error.
-
-The exact numerical optimizer is an implementation detail, but it must:
-
-- start from the spectral estimate
-- remain inside the defined local search region
-- be deterministic
-- avoid heap allocation in real-time code
-- meet the validation tolerances
-
-This fit is used for:
-
-- measured fundamental frequency
-- fundamental amplitude
-- harmonic amplitude extraction
-- subtraction of the fundamental for THD+N
-
-#### Harmonic Analysis
-
-For a measured fundamental frequency `f0`, candidate harmonic frequencies are:
-
-```text
-fn = n * f0
-```
-
-for:
-
-```text
-n = 2 ... 10
-```
-
-Only harmonics below Nyquist and inside the active measurement bandwidth are valid.
-
-Each harmonic amplitude is measured using a sinusoidal least-squares projection/fitting operation at the expected harmonic frequency rather than by reading one FFT bin.
-
-The default displayed product is:
-
-```text
-Hn_dBc = 20 * log10(Vn / V1)
-```
-
-where `V1` and `Vn` are fitted peak amplitudes.
-
-This measurement path avoids window-main-lobe width becoming part of the definition of harmonic amplitude.
-
-#### THD
-
-Spectral Bench 1.1.0 THD uses H2 through H10 where valid.
-
-```text
-THD = sqrt(V2^2 + V3^2 + ... + V10^2) / V1
-THD_percent = 100 * THD
-```
-
-Terms above Nyquist or outside the valid measurement range are omitted.
-
-The UI should make invalid/unavailable harmonics visibly unavailable rather than treating them as zero.
-
-#### THD+N
-
-THD+N uses an explicit measurement bandwidth.
-
-Initial user-selectable bandwidths:
-
-- 20 Hz to 20 kHz
-- 20 Hz to Nyquist
-
-Default:
-
-- 20 Hz to 20 kHz when Nyquist permits it
-
-If the requested upper limit exceeds Nyquist, the actual upper limit is clamped below Nyquist and the UI must display the actual bandwidth used.
-
-##### Fundamental Removal
-
-THD+N is not calculated by simply deleting one FFT bin.
-
-The fitted fundamental sinusoid is reconstructed and subtracted from the unwindowed time-domain analysis frame:
-
-```text
-residual[n] = input[n] - fittedFundamental[n]
-```
-
-The residual therefore intentionally retains:
-
-- harmonics
-- intermodulation products
-- broadband noise
-- hum
-- spurious components
-
-The residual is windowed and transformed for band-power integration.
-
-##### Residual Power
-
-In-band residual power is integrated with window-energy / Parseval-consistent normalization.
-
-DC and frequencies below the selected lower bandwidth limit are excluded.
-
-The denominator is the RMS power of the fitted fundamental.
-
-Conceptually:
-
-```text
-THD+N = sqrt(P_residual_in_band / P_fundamental)
-THD+N_percent = 100 * THD+N
-```
-
-The displayed result always includes the actual measurement bandwidth.
-
-##### Weighting
-
-No A-weighting, CCIR/ITU weighting, AES weighting, or other weighting filter is part of Spectral Bench 1.1.0.
-
-#### Defined Single-Tone Tests
-
-Spectral Bench 1.1.0 includes four distinct single-tone measurement modes:
-
-- 100 Hz
-- 1 kHz
-- 10 kHz
-- Manual Single Tone
-
-The three defined-frequency modes use the local search region specified under
-Defined-Tone Modes. Manual Single Tone retains dominant-tone detection across
-the normal audio analysis range.
-
-For each applicable test, the measurement panel can show:
-
-- input RMS, dBFS
-- input sample peak, dBFS
-- nominal tone frequency where defined
-- measured fundamental frequency, Hz
-- fitted fundamental amplitude, dBFS
-- H2 through H10, dBc
-- THD, %
-- THD+N, %
-- actual THD+N bandwidth
-
-#### CCIF / DFD-Style 19 + 20 kHz Test
-
-Stimulus:
-
-```text
-f1 = 19 kHz
-f2 = 20 kHz
-equal amplitudes
-```
-
-Mean frequency:
-
-```text
-19.5 kHz
-```
-
-Difference frequency:
-
-```text
-1 kHz
-```
-
-Products explicitly inspected in 1.1.0:
-
-```text
-f2 - f1        = 1 kHz
-2*f1 - f2      = 18 kHz
-2*f2 - f1      = 21 kHz
-```
-
-The 21 kHz product is only valid when it is below Nyquist and inside the usable analyzer range.
-The numerical analyzer is allowed to report that product even though the live spectrum display is intentionally capped at 20 kHz; the display limit is not an analysis-bandwidth limit.
-
-Each available product is shown numerically in dBc.
-
-##### Important Naming Rule
-
-Spectral Bench may describe this as `CCIF / DFD-style 19 + 20 kHz`.
-
-It must not claim normative CCIF/ITU-R conformance until the exact normative result normalization used by the intended standard has been verified from the standard itself.
-
-A single aggregate CCIF/DFD percentage result remains deliberately OPEN for that reason.
-
-The individual product measurements are fully defined and can be implemented independently of that open normalization question.
-
-#### SMPTE-Style 60 Hz + 7 kHz Test
-
-Stimulus:
-
-```text
-fL = 60 Hz
-fH = 7 kHz
-low/high amplitude ratio = 4:1
-```
-
-The ratio is a linear amplitude ratio, approximately 12.041 dB.
-
-Products explicitly inspected:
-
-Second-order sideband pair:
-
-```text
-fH - fL = 6940 Hz
-fH + fL = 7060 Hz
-```
-
-Third-order sideband pair:
-
-```text
-fH - 2*fL = 6880 Hz
-fH + 2*fL = 7120 Hz
-```
-
-Each product is shown numerically and marked on the spectrum.
-
-##### Important Naming Rule
-
-Spectral Bench may describe this as `SMPTE-style 60 Hz + 7 kHz`.
-
-It must not claim normative SMPTE conformance until the exact normative aggregate percentage normalization has been verified from the relevant standard.
-
-A single aggregate SMPTE IMD percentage result therefore remains deliberately OPEN.
-
-The current implementation reports the selective second-order and third-order sideband-pair levels in dBc. These are useful product measurements, but they are not presented as a normative aggregate SMPTE IMD result.
-
-#### Shared Test Definition Requirement
-
-Stimulus frequencies and expected product frequencies must not be duplicated independently between Signal Bench and Spectral Bench once shared test definitions are introduced.
-
-Expected IMD products should be representable by integer relationships such as:
-
-```text
-m*f1 + n*f2
-```
-
-rather than unrelated absolute-frequency constants where practical.
-
-#### Deliberately Open Measurement Decisions
-
-The following remain intentionally open after the macOS 2.1.0 release:
-
-1. exact normative aggregate CCIF/DFD percentage normalization
-2. exact normative aggregate SMPTE percentage normalization
-3. final numerical tolerances for validation
-4. empirical review of the frozen 12 dB local-prominence threshold across supported interfaces and FFT/window settings
-
-These items require either normative-source verification or broader empirical validation before implementation is considered complete.
-
-#### Implemented Spectrum Control Semantics
-
-The following previously specified spectrum behaviors are now implemented in the current development build.
-
-##### Averaging
-
-Averaging is exponential averaging in linear power:
-
-```text
-Pavg_new = alpha * Pavg_old + (1 - alpha) * Pnew
-```
-
-with:
-
-```text
-alpha = exp(-hopSeconds / tau)
-```
-
-Modes:
-
-```text
-Off       direct spectrum
-Fast      tau = 0.25 s
-Medium    tau = 1.00 s
-Slow      tau = 4.00 s
-```
-
-##### Peak Hold / Decay
-
-Modes:
-
-- Off
-- Hold
-- Decay
-
-Decay rate:
-
-```text
-20 dB/s
-```
-
-An explicit reset clears stored peak state.
-
-##### Display Grid
-
-The display grid is visual only and does not affect measurement math.
-
-Magnitude hierarchy:
-
-- strongest: 10 dB increments
-- medium: 5 dB increments
-- faint: 1 dB increments
-
-Frequency hierarchy on the logarithmic axis:
-
-- strongest: labelled/decade reference lines
-- medium: selected 2x and 5x subdivisions
-- faint: remaining integer subdivisions within each decade
-
-##### Display Range
-
-The selected display floor affects rendering only.
-
-Current choices:
-
-- -80 dBFS
-- -100 dBFS
-- -120 dBFS
-- -140 dBFS
-
-Changing the display floor does not alter FFT calibration, averaging, bandwidth, or any measurement result.
-
-#### 15-second single-tone statistics
-
-For the Manual Tone, 100 Hz, 1 kHz, and 10 kHz modes, Spectral Bench can
-accumulate a 15-second measurement window. SMPTE-style and CCIF modes keep
-this helper disabled because they currently report selective products rather
-than a normative aggregate measurement.
-
-The capture uses only new analysis frames. A frame is accepted only when the
-selected single-tone stimulus passes the same fundamental/confidence validation
-used by the live measurement. Rejected stimulus frames are counted but are not
-included in the averages.
-
-A completed 15-second result is considered valid only when at least 8 accepted
-frames were captured and at least 80 percent of all observed analysis frames
-were accepted. The result reports the accepted/total frame count explicitly.
-
-Accepted levels and distortion ratios are averaged in the linear power domain.
-For a level `L` in dBFS or dB:
-
-```text
-P = 10^(L / 10)
-```
-
-The mean power is accumulated over the capture interval and converted back:
-
-```text
-Lmean = 10 log10(Pmean)
-```
-
-The timed result reports:
-
-- broadband RMS level
-- fitted fundamental/tone level
-- THD when valid product-qualified THD frames are available
-- THD+N when valid THD+N frames are available
-- accepted/total stimulus-frame count
-
-THD and THD+N use their own valid-frame counts; an unavailable distortion
-result is not substituted with a noise-floor estimate. The statistics function
-does not alter FFT calibration, spectrum averaging, display View offset, or the
-underlying analyzer data.
-
-#### Current single-tone measurement foundation
-
-The current development build provides:
-
-- refined fundamental-frequency estimate
-- fundamental level in dBFS
-- H2 through H10 where valid below the analyzer/Nyquist limit
-- harmonic levels in dBc relative to the fundamental
-- THD from the valid H2 through H10 terms
-- THD+N over the implemented measurement bandwidth
-
-
-##### Live numeric display stabilization
-
-The live numeric distortion readouts are intentionally stabilized independently of FFT spectrum averaging. Valid readings use light exponential smoothing, and an invalid analysis run is held for up to 1.2 s before the UI changes the value to `--`. The hold is applied only while the analysis result is invalid; continuously valid readings continue to update on every UI timer tick and therefore settle to the actual stable measured value. This is display-only behavior: the spectrum trace, analyzer confidence decisions, and 15-second timed-measurement validity continue to use their existing analysis paths.
-
-#### Measurement result CSV export
-
-The **Save Result...** action writes three companion files with the same basename: a single-row CSV record, a mode-aware plain-text report, and a PNG snapshot of the actual spectrum graph.
-
-Unavailable or invalid quantities are represented by empty CSV fields. The literal UI placeholder `--` is never exported as a measurement value.
-
-The record includes provenance (`Spectral Bench`, version, `60°N Signal Works`, timestamp), analyzer configuration, time-domain levels, applicable single-tone/harmonic/THD results, and applicable CCIF/SMPTE-style selective products. The export is intentionally a measurement summary, not a spectrum-bin dump.
-
-Export terminology deliberately separates the live analyzer selection from an available sweep result. The common CSV field is `analyzer_mode` (for example `Manual Tone`), while the appended sweep section uses `sweep_type` (currently `referenced_transfer`). The text report likewise uses `Analyzer mode:` in its common header and `Sweep type:` inside the separate `Sweep measurement` section. A saved sweep can therefore coexist with any current analyzer mode without implying that the analyzer mode describes the sweep.
-
-##### Human-readable text report
-
-The `.txt` companion report contains common provenance, analyzer settings, and level information, followed by only the measurement section relevant to the current mode:
-
-- single-tone modes: fundamental, H2-H10 table, THD, THD+N
-- CCIF mode: detected stimulus tones and 1 kHz / 18 kHz / 21 kHz selective products
-- SMPTE-style mode: detected LF/HF stimulus tones and IM2 / IM3 selective-product groups
-
-Invalid values are displayed as `--` in the human-readable report. The CSV continues to use empty fields for invalid/not-applicable numeric data.
-
-##### Spectrum graph PNG
-
-The `.png` companion is rendered directly from the Spectrum component at save time rather than reconstructed from exported numbers. It therefore preserves the current frequency/dB graph, view offset, spectrum trace, and enabled peak trace. Introduced on macOS 2.0.1 and retained in 2.1.0, Save Result freezes the last valid in-graph cursor measurement and renders the crosshair plus the fixed Trace/Cursor readouts into the PNG. The CSV and TXT report include cursor frequency, cursor dBFS, trace dBFS at the same frequency, and signed cursor-to-trace dB difference when valid.
-
-The PNG is a visual record; the CSV and text report remain the authoritative numeric exports.
-
-
-#### 2.0.1 macOS spectrum viewport and input gain
-
-macOS 2.0.1 preserves the logarithmic frequency axis for every preset and Custom view. Custom limits do not linearize, stretch, or otherwise alter the log-frequency mapping. Adaptive frequency labels use engineering 1-2-5 values rather than arbitrary evenly spaced Hz values.
-
-The Y-axis can be zoomed to spans from 120 dB through 10 dB and vertically positioned within the practical -120 to 0 dBFS inspection region. The grid adapts to the selected span. Y zoom and position affect display only.
-
-Input Gain is independent and ranges from -20 to +40 dB. It is applied to the selected analysis input before FFT/measurement processing and therefore intentionally changes measured dBFS values. It does not change the audio passed through the plugin.
-
-The dB viewport controls are coupled. `dB Span = dB Top - dB Floor` at all times. Changing dB Top anchors the top boundary; changing dB Floor anchors the floor boundary; changing dB Span then preserves the most recently selected boundary and moves the opposite boundary. The graph and exported `db_span`, `db_top_dbfs`, and `db_floor_dbfs` values use this same resolved viewport state.
-
-The macOS 2.0.1 graph also provides a free crosshair measurement cursor. Fixed top-right Trace and Cursor readouts avoid distracting label movement. The Cursor readout reports mouse frequency and dBFS plus the signed dB difference to the spectrum trace at the same frequency; the Trace readout reports the corresponding trace point. Command-S opens Save Result without requiring the mouse to leave the measurement point.
-
-Windows and Linux remain at the validated 1.1.0 feature set and are outside the current development roadmap.
-
-#### macOS 2.1.0 Referenced Sweep Measurement
-
-For user-facing procedures and recommended starting settings, see [MEASUREMENT_GUIDE.md](MEASUREMENT_GUIDE.md).
-
-The production sweep is always referenced and measures one DUT channel at a time. The selected DUT channel is paired with the same-numbered input; the other channel is the reference output/input. Both outputs receive identical sample-synchronous deterministic exponential sine-sweep samples. The reference path is intended to be looped directly back while the DUT path passes through the device under test.
-
-Transfer magnitude is `DUT / Reference` and is reported in dB. The Actual view reports the locally captured DUT sinusoidal amplitude in dBFS. Actual is intentionally not normalized to the reference, so common physical-path response and sweep endpoint/boundary effects remain visible there while cancelling from Transfer.
-
-##### Phase semantics
-
-Phase is wrapped to +/-180 degrees and low-confidence points may be omitted rather than displaying phase dominated by noise.
-
-- **Raw** preserves the complete referenced phase, including constant transport delay.
-- **Auto** removes a constant delay estimated from the sweep alignment. The estimate is phase compensation only; it is not an authoritative latency measurement and can be influenced by DUT response.
-- **Baseline** divides the current referenced complex transfer by a stored baseline referenced complex transfer. The guided Baseline A/B workflow captures A, prompts for the DUT-state change, captures B, and displays B relative to A. Routing must remain unchanged between the two captures.
-- **Manual** removes exactly the user-entered constant delay. When actual DUT transport latency is required, measure it independently, for example with 60°N Latency Bench, and enter that result in milliseconds.
-
-There is no universal phase-only method for deciding whether a linear phase term is transport delay or genuine linear-phase DUT response. For that reason Spectral Bench exposes the compensation choice rather than silently flattening phase.
-
-## 4.3 Application and feature reference
-
-**Spectral Bench** is a cross-platform real-time audio spectrum analyzer and focused audio measurement tool by **60°N Signal Works**.
-
-It is intended as a companion to Signal Bench:
-
-- **Signal Bench** generates known test signals.
-- **Spectral Bench** analyzes what happened to them.
-
-Spectral Bench is deliberately not intended to become a kitchen-sink analyzer. The design goal is a technically correct, exceptionally clear and readable spectrum analyzer with a limited set of useful distortion measurements.
-
-For practical setup and step-by-step use, see **[Measurement Guide](docs/MEASUREMENT_GUIDE.md)**. It covers recommended starting settings for live spectrum work, noise inspection, single-tone/distortion measurements, referenced sweeps, Actual response, phase, Baseline A/B, and IMD measurements.
-
-#### Status
-
-Spectral Bench has a validated cross-platform 1.1.0 baseline. Windows x64 and Linux x86_64 intentionally remain on that release for now.
-
-macOS **2.1.0 is released and validated**. The release passes the full 20-test automated suite. Its Standalone viewport, crosshair/readout, Input Gain, referenced sweep, Actual response, Raw/Auto/Manual/Baseline phase modes, guided Baseline A/B workflow, Help, Save Result/Command-S, and export behavior passed manual/physical qualification. The final package was clean-installed with Standalone, AU, and VST3 at their intended system locations; the AU passed full `auval` validation, VST3 metadata was verified, and the installed Standalone passed functional sweep/Transfer/Actual/Phase smoke tests.
-
-The spectrum analyzer, level measurements, defined single-tone modes, H2-H10, THD, THD+N, SMPTE-style selective IM products, CCIF/DFD-style individual-product analysis, stimulus/result confidence checks, 15-second single-tone measurement helper, and measurement-result export remain implemented across the applicable platform versions.
-
-#### Platforms and Formats
-
-##### macOS
-- Standalone
-- Audio Unit (AU)
-- VST3
-
-##### Windows x64
-- Standalone
-- VST3
-
-##### Linux x86_64
-- Standalone
-- VST3
-
-The implementation uses JUCE and C++.
-
-#### Design Principles
-
-- Architecture first, implementation second.
-- Correctness before features.
-- The spectrum analyzer is the primary feature and should dominate the UI.
-- Measurements must have explicit, documented definitions.
-- No context-free “magic numbers”.
-- DSP and measurement code must remain independent of the UI, plugin wrapper, standalone wrapper, and platform packaging.
-- Platform-specific DSP should be avoided.
-- Warnings are treated seriously.
-- Validation is required; “it seems to work” is not sufficient.
-- Avoid featuritis.
-
-#### Version Status
-
-##### 2.1.0 (macOS)
-
-Spectral Bench 2.1.0 is the current macOS release. Windows x64 and Linux x86_64 intentionally remain on the validated 1.1.0 baseline and are not part of the current development roadmap.
-
-macOS 2.1.0 includes the instrument-style spectrum viewport controls introduced during the macOS 2.x development cycle without changing the logarithmic nature of the frequency axis or the calibrated measurement math:
-
-- additional logarithmic frequency-view presets: 10 Hz-1 kHz, 20 Hz-2 kHz, 100 Hz-5 kHz, 1 kHz-20 kHz, and 5 kHz-20 kHz
-- Custom frequency view with explicit minimum/maximum frequency and adaptive 1-2-5 engineering grid generation
-- coupled dB Top, dB Floor, and dB Span controls from a 120 dB overview down to a 10 dB zoomed view
-- changing dB Top or dB Floor selects that boundary as the zoom anchor; subsequent dB Span changes preserve the selected boundary while the opposite boundary follows
-- independent analysis Input Gain from -20 to +40 dB
-- adaptive dB grid density for narrow amplitude views
-- fixed top-right Trace/Cursor measurement readouts with a free crosshair cursor
-- cursor readout includes mouse frequency/dBFS, trace level at the same frequency, and signed dB difference
-- `Save Result… ⌘S` captures the active cursor/trace measurement in the PNG, CSV, and TXT report
-
-Input Gain is the only new viewport-area control that changes the samples presented to the analyzer. Frequency range, dB span, and dB position are display controls. The analyzed audio pass-through is not gain-modified.
-
-The released 2.1.0 macOS implementation passes the 20-test automated suite. Referenced magnitude, Actual response, phase modes, guided Baseline A/B, multiple levels/sample rates/buffer sizes, and physical DUT filter behavior are qualified. Documentation/export wording, package installation, AU validation, VST3 metadata, and installed Standalone smoke checks are complete.
-
-
-##### 1.1.0
-
-Spectral Bench 1.1.0 remains the current fully cross-platform validated release baseline. It has been built and tested on:
-
-- macOS
-- Windows x64
-- Linux x86_64
-
-The 1.1.0 release remains the validated Windows/Linux baseline; the later macOS-only 1.2.0 work is retained below as release history.
-
-##### 1.2.0
-
-Spectral Bench 1.2.0 adds two spectrum-display features:
-
-- selectable **20 Hz to 20 kHz** and **100 Hz to 10 kHz** analyzer views
-- user-selectable **Raw** and **Noise Smooth** trace presentation
-
-**Noise Smooth** is intended especially for broadband-noise work. It reduces the visually thick/highly variable trace produced by Pink and White noise, particularly at higher frequencies, while Raw retains the original detailed spectrum presentation.
-
-The smoothing is a **display-only operation**. It does not change the calibrated measurement snapshot used for numerical measurements, cursor source data, harmonic analysis, THD, THD+N, intermodulation measurements, analyzer confidence, or authoritative numeric exports.
-
-Spectral Bench 1.2.0 has currently been **built, installed, and tested on macOS only**.
-
-macOS 1.2.0 validation completed so far includes:
-
-- clean Release build
-- all automated tests passed
-- Standalone functional test
-- 20 Hz to 20 kHz / 100 Hz to 10 kHz range switching
-- Raw / Noise Smooth switching
-- macOS installer package build and installation
-- installed Standalone launch
-- installed Audio Unit version verified as 1.2.0
-- full `auval` validation passed
-- Logic Pro AU load and functional smoke test
-- both new 1.2.0 controls tested successfully in Logic Pro
-
-**Windows x64 and Linux x86_64 remain on the validated 1.1.0 release. No Windows/Linux update is currently scheduled; those platforms are outside the active roadmap.**
-
-
-#### Core analyzer and measurement scope
-
-##### Spectrum Analyzer
-
-The central display is a real-time audio spectrum analyzer with:
-
-- logarithmic frequency axis
-- magnitude shown in dB
-- normal audio-frequency view of approximately 20 Hz to 20 kHz
-- optional display toward Nyquist where useful
-- adjustable useful display dynamic range
-- properly calibrated FFT amplitudes
-- selectable FFT size
-- a deliberately small set of useful window functions
-- averaging
-- peak hold
-- readable grid and labels
-- frequency/amplitude cursor or readout
-
-The spectrum itself will normally remain calibrated in dBFS.
-
-##### Basic Level Measurements
-
-The UI also shows:
-
-- input RMS level in dBFS
-- input sample-peak level in dBFS
-- measured fundamental frequency in Hz when applicable
-
-RMS and sample peak are intended to be calculated in the time domain so that they do not depend on FFT size, window, averaging, or overlap.
-
-True-peak metering is outside the 1.0.0 scope.
-
-##### Single-Tone Analysis
-
-For defined or detected single-tone measurements, Spectral Bench shows:
-
-- fundamental frequency
-- fundamental amplitude in dBFS
-- H2 through H10 where valid below Nyquist
-- individual harmonic levels in dBc relative to the fundamental
-- THD
-- THD+N
-- explicit THD+N measurement bandwidth
-
-Initial defined single-tone tests:
-
-- 100 Hz
-- 1 kHz
-- 10 kHz
-- manual/detected single tone
-
-##### THD
+Harmonic analysis fits the fundamental and valid harmonics H2 through H10. Harmonic levels are reported in dBc relative to the fitted fundamental.
 
 THD is conceptually:
 
@@ -1659,1241 +721,201 @@ THD is conceptually:
 THD = sqrt(V2^2 + V3^2 + ... + Vn^2) / V1
 ```
 
-For 1.0.0, harmonic analysis is intended to include H2 through H10 where those harmonics are valid below Nyquist.
+where only valid harmonics within the supported analysis range contribute.
 
-The implemented harmonic analyzer reports fitted H2 through H10 values where valid below Nyquist and computes THD from the qualified harmonic amplitudes.
+THD describes harmonic products only. It does not include unrelated broadband noise and must not be used interchangeably with THD+N.
 
-##### THD+N
+## 4.8 THD+N
 
-THD+N must always have an explicit measurement bandwidth.
+THD+N removes the fitted fundamental and integrates the remaining residual power over an explicit measurement bandwidth. The measurement therefore includes harmonic distortion, noise and any other residual energy inside that bandwidth.
 
-Initial intended bandwidth choices:
+The available bandwidth semantics include 20 Hz to 20 kHz where the sample rate permits it and 20 Hz to Nyquist. No A-weighting, AES weighting or other weighting filter is part of the documented measurement.
 
-- 20 Hz to 20 kHz
-- 20 Hz to Nyquist
+Always report the THD+N bandwidth with the result. A percentage without its measurement bandwidth is incomplete.
 
-The default is intended to be 20 Hz to 20 kHz where the sample rate permits it.
+## 4.9 Fifteen-second single-tone statistics
 
-The implemented THD+N path subtracts the fitted fundamental and integrates residual power over the explicit measurement bandwidth; implementation details are documented in `docs/MEASUREMENTS.md`.
+Manual Tone and the three defined single-tone modes can accumulate a 15-second measurement window using new accepted analysis frames. SMPTE-style and CCIF modes do not use this helper because they report selective products rather than a normative aggregate measurement.
 
-##### Two-Tone / IMD Analysis
+The statistics function is useful when a single live value is too volatile to describe a DUT. It does not turn an unstable or invalid stimulus into a valid one; the same stimulus/confidence rules still apply to accepted frames.
 
-Two-tone stimuli are treated as IMD measurements, not THD tests.
+## 4.10 CCIF / DFD-style 19 + 20 kHz measurement
 
-Implemented test families:
-
-- CCIF / ITU-R-style 19 kHz + 20 kHz, equal amplitudes
-- SMPTE-style 60 Hz + 7 kHz, 4:1 amplitude ratio
-
-The implemented CCIF/DFD-style and SMPTE-style modes report selective products with documented stimulus requirements. Spectral Bench does not claim normative aggregate-percentage compliance for those standards.
-
-##### FFT Choices
-
-Supported FFT sizes:
-
-- 4096
-- 8192
-- 16384
-- 32768
-- 65536
-
-Default: **16384**.
-
-Supported windows:
-
-- Hann
-- 4-term Blackman-Harris
-- Flat Top
-
-Window coherent gain and equivalent noise bandwidth (ENBW) are explicit properties of each supported window.
-
-##### Averaging
-
-Supported averaging choices:
-
-- Off
-- Fast
-- Medium
-- Slow
-
-Averaging operates on linear power, with conversion to dB performed afterward.
-
-##### Peak Hold
-
-Supported peak behavior:
-
-- Off
-- Hold
-- Decay
-
-An explicit reset action is provided.
-
-#### UI Direction
-
-The spectrum display should consume most of the available area.
-
-A compact measurement area should present RMS, sample peak, measured fundamental frequency, fundamental amplitude, harmonics, THD, THD+N, and bandwidth as applicable.
-
-Initial conceptual analysis modes:
-
-- Spectrum
-- 100 Hz
-- 1 kHz
-- 10 kHz
-- Manual Tone
-- CCIF 19 + 20 kHz
-- SMPTE 60 Hz + 7 kHz
-
-The measurement panel should sit naturally on top of the spectrum-analysis architecture rather than behave like an unrelated meter panel.
-
-#### Architecture Direction
-
-Conceptually:
+The defined stimulus is:
 
 ```text
-Audio input
-    |
-    v
-Analysis FIFO / history
-    |
-    +--> time-domain statistics
-    |      RMS
-    |      sample peak
-    |
-    v
-Windowing
-    |
-    v
-Real FFT
-    |
-    v
-Calibrated complex spectrum
-    |
-    +--> display processing
-    |      averaging
-    |      peak hold
-    |
-    +--> measurement engine
-           fundamental estimation
-           harmonic analysis
-           THD
-           THD+N
-           predefined IMD measurements
-```
-
-The audio callback must remain lightweight. FFT analysis and measurement work should not be performed in the real-time audio callback.
-
-The UI must not calculate measurements.
-
-See `docs/ARCHITECTURE.md` and `docs/MEASUREMENTS.md`.
-
-#### Shared Signal Bench / Spectral Bench Test Definitions
-
-Signal Bench and Spectral Bench should eventually share test definitions so that the generator and analyzer do not independently hard-code incompatible test concepts.
-
-There is no requirement for runtime communication between the applications in the current release.
-
-A future shared definition should be able to describe:
-
-- test identity and name
-- one or more stimulus tones
-- nominal frequencies
-- relative amplitudes
-- measurement type
-- expected distortion/intermodulation products
-- product frequencies derived from the stimulus where possible
-
-For two-tone products, definitions should prefer relationships such as:
-
-```text
-f2 - f1
-2*f1 - f2
-2*f2 - f1
-```
-
-instead of separately hard-coded absolute product frequencies.
-
-See `docs/ARCHITECTURE.md`.
-
-#### Validation
-
-Spectral Bench uses automated and manual validation of the measurement engine.
-
-Automated and reference validation cover:
-
-- FFT amplitude calibration
-- frequency accuracy
-- supported FFT sizes
-- supported windows
-- coherent-gain correction
-- ENBW handling
-- RMS
-- sample peak
-- harmonic amplitude accuracy
-- THD
-- THD+N
-- measurement bandwidth
-- IMD calculations
-- supported sample rates
-- behavior near Nyquist
-
-The permanent independent reference-validation gate verifies, among other cases, that a bin-centred digital sine with peak amplitude 0.5 reads approximately **-6.0206 dBFS** independent of supported FFT size and selected window, within the frozen numerical tolerance.
-
-See `docs/VALIDATION.md`.
-
-#### Saving measurement results
-
-Spectral Bench can save the current measurement result using **Save Result...**. On macOS 2.1.0 the button is shown as **Save Result… ⌘S**, and Command-S invokes the same save dialog without moving the measurement cursor. Each save creates three files with the same basename:
-
-- `.csv` — structured, spreadsheet/script-friendly data
-- `.txt` — compact, mode-aware human-readable measurement report
-- `.png` — snapshot of the actual spectrum graph as displayed at save time
-
-The export is a single-row measurement record rather than a raw FFT-bin dump. It includes:
-
-- ISO-8601 timestamp
-- product, version, and vendor
-- selected measurement mode
-- sample rate and input channel
-- FFT size, window, averaging, and peak mode
-- RMS and sample peak
-- fitted fundamental and H2-H10 values where valid
-- THD and THD+N where valid
-- CCIF selective products where valid
-- SMPTE-style IM2/IM3 groups where valid
-- on macOS 2.1.0, cursor frequency/dBFS, trace dBFS at the same frequency, and signed cursor-to-trace dB difference when a valid graph cursor measurement exists
-
-Fields that are not applicable or not currently valid are left empty rather than being exported as `--` or as fabricated numeric values. Stimulus-valid flags are included for the CCIF and SMPTE-style modes.
-
-The CSV remains the structured interchange format for spreadsheets and scripts. The accompanying text report is intended for direct reading, lab notes, email, and issue reports, and omits sections that are irrelevant to the selected measurement mode. The PNG uses the actual spectrum-component rendering, including the current graph range, view offset, spectrum trace, and enabled peak trace. On macOS 2.1.0, Save Result freezes the last valid in-graph crosshair measurement and includes the crosshair plus fixed Trace/Cursor readouts in the saved PNG. The CSV and text report carry product/version/vendor metadata so saved numeric results remain attributable later.
-
-#### macOS installer
-
-The reproducible macOS packaging script builds:
-
-```text
-dist/Spectral-Bench-2.1.0-macOS.pkg
-```
-
-The package installs:
-
-```text
-/Applications/60°N Signal Works Audio Bench Suite/Spectral Bench.app
-/Library/Audio/Plug-Ins/Components/Spectral Bench.component
-/Library/Audio/Plug-Ins/VST3/Spectral Bench.vst3
-```
-
-The macOS 2.1.0 package is unsigned. `packaging/macos/build-pkg.sh` builds it from the current Release Standalone, AU, and VST3 artifacts and verifies the packaged artifact set and VST3 vendor metadata.
-
-#### Windows x64 build and installer
-
-Prerequisites:
-
-- Git
-- CMake 3.22 or newer
-- Visual Studio 2022 Build Tools with the C++ workload
-- Inno Setup 6 for the installer
-
-From PowerShell:
-
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
-powershell -ExecutionPolicy Bypass -File .\packaging\windows\build-installer.ps1
-```
-
-The installer output is:
-
-```text
-dist\Spectral-Bench-1.1.0-Windows-x64.exe
-```
-
-It installs the Standalone application under `C:\Program Files\Spectral Bench\` and the VST3 under `C:\Program Files\Common Files\VST3\Spectral Bench.vst3`.
-
-The Windows installer is unsigned unless a separate signing workflow is used. The Spectral Bench 1.1.0 Windows x64 Release build, automated tests, installer, installed Standalone, VST3 installation, and CSV/TXT/PNG result export have been validated on Windows.
-
-#### Linux x86_64 build and package
-
-Prerequisites include Git, CMake 3.22 or newer, Ninja or another supported CMake generator, a C++17 compiler, and the JUCE development dependencies required by the target distribution.
-
-On Ubuntu/Linux with Ninja:
-
-```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j "$(nproc)"
-ctest --test-dir build --output-on-failure
-./packaging/linux/build-package.sh
-```
-
-The package output is:
-
-```text
-dist/Spectral-Bench-1.1.0-Linux-x86_64.tar.gz
-```
-
-After extracting the archive, run `./install.sh`.
-
-Per-user installation paths are:
-
-```text
-~/.local/bin/spectral-bench
-~/.vst3/Spectral Bench.vst3
-~/.local/share/applications/spectral-bench.desktop
-~/.local/share/icons/hicolor/256x256/apps/spectral-bench.png
-```
-
-Run `./uninstall.sh` from the extracted archive to remove the per-user installation.
-
-The portable archive depends on compatible runtime libraries and is not claimed to run on every Linux distribution. The Spectral Bench 1.1.0 Linux x86_64 Release build, automated tests, package, installed Standalone, VST3 installation, desktop integration, and CSV/TXT/PNG result export have been validated on Linux.
-
-#### Deferred / Future Development
-
-Deferred and post-1.1 development ideas are documented in `docs/FUTURE.md`.
-
-The list is retained intentionally so that future additions are explicit design decisions rather than accidental feature growth.
-
-Spectral Bench 1.2.0 implements the previously planned user-selectable **100 Hz to 10 kHz** zoomed view in addition to the normal **20 Hz to 20 kHz** view, together with explicit user-selectable Raw / Noise Smooth trace presentation for broadband-noise work.
-
-##### Selectable analyzer view and trace presentation
-
-The 1.2.0 implementation keeps measurement math separate from trace presentation. Noise Smooth uses display-side processing to show Pink and especially White noise as a cleaner, thinner representative trace. Raw remains available for detailed spectrum inspection. The selected presentation is explicit in the UI and does not alter numeric measurements, peak detection, harmonic analysis, THD/THD+N, IM-product calculations, or authoritative numeric exports.
-
-#### Repository
-
-Spectral Bench is a standalone project and does not inherit Signal Bench or the earlier Pink Noise Generator Git history.
-
-Spectral Bench 1.1.0 is the intended repository baseline. The repository history will be initialized from this validated feature state.
-
-The `v1.1.0` Git tag is reserved for the finalized release after macOS, Windows x64, and Linux x86_64 validation of the same source state.
-
-#### Author / Brand
-
-**60°N Signal Works**
-
-#### Measurement Specification Status
-
-The core Spectral Bench measurement model is specified in `docs/MEASUREMENTS.md`.
-
-Key frozen decisions include:
-
-- FFT sizes: 4096 through 65536
-- default FFT size: 16384
-- fixed 75% overlap
-- Hann, 4-term Blackman-Harris, and Flat Top windows
-- coherent-gain calibrated tone spectrum
-- window-energy calibrated integrated noise power
-- power-domain spectrum averaging
-- averaging time constants of 0.25 s, 1 s, and 4 s
-- spectral peak hold with optional 20 dB/s decay
-- 400 ms time-domain RMS averaging
-- rolling 1 s sample peak
-- FFT-assisted, least-squares-refined tone measurement
-- fitted H2 through H10
-- THD from fitted harmonic amplitudes
-- THD+N by fitted-fundamental subtraction plus explicit-bandwidth residual power integration
-
-The 19+20 kHz and 60 Hz+7 kHz IMD stimuli and individual products are defined, but Spectral Bench does not claim normative CCIF/ITU-R or SMPTE aggregate-percentage compliance until the exact normative result normalization has been verified from the relevant standard.
-
-#### Current Spectrum Analyzer Features
-
-Spectral Bench 1.1.0 includes the real-time spectrum analyzer core and measurement UI.
-
-Spectrum display:
-
-- logarithmic frequency axis
-- default display range: 20 Hz to 20 kHz
-- calibrated dBFS magnitude display
-- selectable display floor: -80, -100, -120, or -140 dBFS
-- live oscilloscope-style green spectrum trace
-- separate amber peak trace
-- frequency/amplitude cursor readout
-- hierarchical logarithmic frequency grid
-- hierarchical 1 dB / 5 dB / 10 dB magnitude grid
-
-FFT sizes:
-
-- 4096
-- 8192
-- 16384
-- 32768
-- 65536
-
-Window functions:
-
-- Hann
-- 4-term Blackman-Harris
-- Flat Top
-
-Spectrum averaging:
-
-- Off
-- Fast: 0.25 s
-- Medium: 1.0 s
-- Slow: 4.0 s
-
-Averaging is performed in the linear power domain rather than directly in dB.
-
-Peak display:
-
-- Off
-- Hold
-- Decay
-- explicit peak reset
-
-Peak decay is 20 dB/s.
-
-The analyzer also displays time-domain RMS and sample peak values in dBFS.
-
-##### Standalone Input
-
-JUCE's default standalone wrapper mutes audio input as feedback protection. Spectral Bench uses a custom JUCE standalone application so that analysis input is explicitly enabled in Standalone mode.
-
-AU and VST3 do not use this standalone-specific behavior.
-
-##### Realtime Diagnostics
-
-The current UI also exposes:
-
-- dropped input block/sample count
-- analysis-frame overlap continuity error count
-
-These diagnostics were added while investigating occasional broadband spectrum bursts.
-
-With the current implementation, normal operation has been verified with zero FIFO drops and zero frame-overlap continuity errors.
-
-The diagnostic counters are retained for realtime-pipeline diagnostics and validation.
-
-##### Current Validation Checkpoint
-
-The current macOS 1.1.0 build has verified:
-
-- live audio input reaches the Standalone analyzer
-- calibrated level and FFT behavior with known sine stimuli
-- FFT/window/averaging/peak/display-range controls
-- defined single-tone, THD/THD+N, SMPTE-style, and CCIF measurement behavior
-- 6/6 automated tests, including the permanent independent reference-validation gate
-- AU validation with `auval`
-- Logic Pro AU loading and smoke testing
-- VST3 factory/class vendor metadata as UTF-8 `60°N Signal Works`
-- generated macOS 1.1.0 package installation and Standalone/Logic smoke testing
-
-Distortion analysis is implemented and covered by automated and independent reference validation.
-
-#### Spectrum Level Semantics
-
-Spectral Bench's current spectrum display is calibrated in **dBFS/bin**.
-
-This is the intended representation for the normal real-time spectrum view and
-for tone, harmonic, and intermodulation measurements.
-
-For broadband noise, the displayed level of an individual FFT bin depends on
-bin bandwidth. Doubling FFT size halves bin bandwidth, so broadband noise power
-per bin should fall by approximately 3.01 dB even though the broadband RMS
-signal level is unchanged.
-
-A coherent sine tone does not follow this same 3 dB-per-doubling behavior.
-
-Spectral Bench 1.1.0 does not include a power-spectral-density
-display in dBFS/Hz. That remains a possible later noise-analysis feature.
-
-##### 15-second statistics capture
-
-The four single-tone modes (Manual Tone, 100 Hz, 1 kHz, and 10 kHz) include a 15-second measurement helper. It accumulates unique analysis frames only while the selected stimulus remains valid, tracks accepted and rejected frames, and enforces stimulus continuity so a dropout cannot silently become part of a valid result.
-
-The completed measurement reports averaged RMS and fitted fundamental level, plus THD and THD+N when those results have sufficient valid-frame coverage. SMPTE-style and CCIF selective-product modes intentionally do not use this aggregate 15-second helper.
-
-#### License
-
-MIT License. See [LICENSE](LICENSE).
-
-Copyright (c) 2026 Harri Saastamoinen
-
-#### Automated Sweep and Phase Measurement (macOS 2.1.0)
-
-Spectral Bench 2.1.0 adds an automated logarithmic sine-sweep measurement using a fixed two-channel referenced topology. The selected **DUT ch** is the DUT output/input path and the other channel is the direct reference path. Both outputs receive the same sample-synchronous deterministic sweep. Transfer magnitude is calculated as DUT/Reference, so response common to both paths cancels.
-
-The sweep result selector chooses what the graph displays: **Transfer**, **Actual**, **Phase**, or **Live**. Transfer is the referenced magnitude response in dB. Actual is the locally captured DUT amplitude in dBFS and therefore includes the physical path and sweep-boundary behaviour; it is not a normalized transfer function. Phase shows the referenced phase result. Live returns to the normal real-time analyzer.
-
-##### Phase modes
-
-**Raw** shows the complete measured referenced phase, including fixed DUT transport delay. A constant delay therefore appears as a linear phase slope and repeated wrapping at +/-180 degrees.
-
-**Auto** estimates and removes one constant delay from the phase display. This is a convenience phase-alignment estimate, **not a measurement of DUT latency**. The DUT's own phase/group-delay response can influence the estimate, so the displayed `Comp ms` value must not be interpreted as authoritative device latency.
-
-**Baseline** compares two DUT states. Use **Baseline A/B...**: Spectral Bench automatically runs and stores the baseline sweep, asks the user to change only the DUT state, then automatically runs the comparison sweep and displays B relative to A. Intermediate sweep visuals are not part of the procedure. Fixed transport delay, unchanged interface/path phase, and other unchanged response cancel. This is normally the clearest mode for measuring the phase change caused by enabling an EQ/filter or another processing block.
-
-**Manual** removes exactly the constant delay entered in `Comp ms`. Use it when the DUT transport latency is already known independently. If it is not known, it can be measured separately with **60°N Latency Bench** and the measured value entered in milliseconds. This deliberately keeps latency measurement separate from phase interpretation.
-
-A constant transport delay and genuine linear phase are mathematically indistinguishable from phase data alone. Spectral Bench therefore does not silently claim that Auto has discovered the DUT's true latency. Raw preserves everything, Auto is an explicit estimate, Baseline uses a physical A/B reference, and Manual removes exactly the delay chosen by the user.
-
-<!-- FIGURE PLACEHOLDER: Figure 4.2
-Application: Spectral Bench
-Subject: Saved or validation measurement
-Show: A representative validated spectrum, sweep or phase result with numeric readouts.
-Suggested size: full text width
-Caption: Example of a Spectral Bench validation measurement.
--->
-
-**Figure 4.2.** Example of a Spectral Bench validation measurement.
-
-
-## 4.4 Validation
-
-#### Principle
-
-Spectral Bench measurements must be validated against deterministic reference signals and independently calculated expected results.
-
-“Looks right” is not a validation method.
-
-#### Reference Sample Rates
-
-At minimum:
-
-- 44.1 kHz
-- 48 kHz
-- 96 kHz
-- 192 kHz
-
-#### FFT Sizes
-
-Validate every supported size:
-
-- 4096
-- 8192
-- 16384
-- 32768
-- 65536
-
-#### Windows
-
-Validate:
-
-- Hann
-- 4-term Blackman-Harris
-- Flat Top
-
-For each window verify:
-
-- coefficient generation
-- coherent gain
-- sum of squared coefficients
-- ENBW
-- exact-bin amplitude correction
-
-#### Spectral Amplitude Reference
-
-For every supported FFT size/window combination:
-
-Input:
-
-```text
-bin-centred sine
-peak amplitude = 0.5
-```
-
-Expected fitted/displayed tone amplitude:
-
-```text
--6.020599913 dBFS
-```
-
-The independent deterministic reference matrix and its frozen v1.0 pass/fail tolerances are enforced by `SpectralBenchReferenceValidation`.
-
-#### dBFS Meter References
-
-##### Full-scale sample
-
-```text
-x = 1.0
-sample peak = 0 dBFS
-```
-
-##### Full-scale-peak sine
-
-```text
-sine peak = 1.0
-sample peak = 0 dBFS
-RMS = -3.010299957 dBFS
-```
-
-##### Half-scale-peak sine
-
-```text
-sine peak = 0.5
-sample peak = -6.020599913 dBFS
-RMS = -9.030899870 dBFS
-```
-
-#### Overlap / Scheduling
-
-Verify that:
-
-```text
-hop = N / 4
-```
-
-for every FFT size.
-
-Analysis output cadence must match sample-rate-derived hop duration rather than UI repaint cadence.
-
-#### Averaging
-
-Verify exponential power averaging for:
-
-- Fast: 0.25 s
-- Medium: 1.00 s
-- Slow: 4.00 s
-
-Test at multiple FFT sizes/sample rates to confirm that equivalent physical time constants are preserved.
-
-#### Spectrum Peak Hold
-
-Verify:
-
-- Hold never decreases without reset
-- Reset clears stored peaks
-- Decay falls at 20 dB/s
-- a new higher value immediately replaces a decayed held value
-
-#### Fundamental Estimation
-
-Use deterministic tones:
-
-- exact-bin
-- half-bin offset
-- other non-coherent offsets
-- 100 Hz
-- 1 kHz
-- 10 kHz
-- representative intermediate frequencies
-
-Verify both:
-
-- FFT initial estimate
-- least-squares refined frequency/amplitude
-
-Also verify stimulus confidence independently of absolute level:
-
-- a resolved tone below -120 dBFS remains valid when it has at least 12 dB local prominence and remains above the very-low numerical sanity backstop
-- a shallow nominal-frequency noise bump without 12 dB local prominence is rejected
-- a stronger unrelated off-frequency tone does not steal a defined-tone measurement
-- both carriers of SMPTE-style and CCIF stimuli must independently satisfy the prominence check
-
-#### Harmonic Analysis
-
-Build deterministic synthetic signals containing a known fundamental and H2 through H10 at independently selected levels.
-
-Verify:
-
-- fitted fundamental level
-- each valid harmonic level
-- dBc conversion
-- above-Nyquist products marked unavailable
-- THD RSS calculation
-
-#### THD
-
-For known harmonic amplitudes:
-
-```text
-THD = sqrt(sum(Vn^2)) / V1
-```
-
-Compare against independently computed reference values.
-
-#### THD+N
-
-Use deterministic cases containing:
-
-1. fundamental only
-2. fundamental + known H2/H3
-3. fundamental + deterministic broadband noise
-4. fundamental + harmonics + noise
-5. fundamental + hum/spurious tones
-
-Verify both bandwidth modes:
-
-- 20 Hz to 20 kHz
-- 20 Hz to Nyquist
-
-Verify that fitted-fundamental subtraction does not materially dominate the residual for a pure tone.
-
-Verify Parseval/window-energy consistency of integrated residual power.
-
-#### CCIF / DFD-Style Test
-
-Stimulus:
-
-```text
-19 kHz + 20 kHz
+f1 = 19 kHz
+f2 = 20 kHz
 equal amplitudes
 ```
 
-Verify extraction and spectrum markers for:
-
-- 1 kHz
-- 18 kHz
-- 21 kHz where below Nyquist and inside the analyzer data range
-
-Also verify that a valid 21 kHz product is still reported numerically when the live spectrum display is capped at 20 kHz. The graph limit must not silently become an analysis-bandwidth limit.
-
-Do not add a normative aggregate percentage pass/fail test until the exact intended standard normalization is verified.
-
-#### SMPTE-Style Test
-
-Stimulus:
+The difference frequency is 1 kHz. Spectral Bench explicitly inspects:
 
 ```text
-60 Hz + 7 kHz
-4:1 low/high linear amplitude ratio
+f2 - f1        = 1 kHz
+2*f1 - f2      = 18 kHz
+2*f2 - f1      = 21 kHz
 ```
 
-Verify extraction and spectrum markers for:
+The 21 kHz product is valid only when it is below Nyquist and inside the usable analyzer range. Numerical analysis may report it even though the normal live spectrum view is capped at 20 kHz; display range and analysis range are different concepts.
 
-- 6880 Hz
-- 6940 Hz
-- 7060 Hz
-- 7120 Hz
+Available products are reported in dBc.
 
-Do not add a normative aggregate percentage pass/fail test until the exact intended standard normalization is verified.
+The wording **CCIF / DFD-style** is intentional. Spectral Bench does not claim a normative aggregate CCIF/ITU-R percentage because the exact standard normalization has not been established from the normative source.
 
+## 4.11 SMPTE-style 60 Hz + 7 kHz measurement
 
-#### Independent Reference Harness
-
-Sprint 032 adds `SpectralBenchReferenceValidation` as a pre-release evidence
-collector. It generates deterministic time-domain signals from analytic
-definitions, passes them through the production FFT/analyzer path, and compares
-the results with independently calculated references.
-
-The first matrix covers:
-
-- all 4 reference sample rates
-- all 5 supported FFT sizes
-- all 3 supported windows
-- exact-bin amplitude calibration
-- non-coherent frequency/amplitude estimation
-- H2-H10 and RSS THD
-- CCIF selective products
-- SMPTE-style selective product-pair RSS
-
-The harness is a permanent CTest release gate. The v1.0 deterministic
-reference-validation tolerances are frozen as follows:
-
-| Quantity | v1.0 validation tolerance |
-|---|---:|
-| Exact-bin amplitude | ±0.01 dB |
-| Off-bin frequency | ±0.10 FFT bin |
-| Off-bin amplitude | ±0.25 dB |
-| H2-H10 levels | ±0.05 dB |
-| THD | ±0.05 dB |
-| CCIF selective products | ±1.0 dB |
-| SMPTE-style selective product pairs | ±1.0 dB |
-
-These limits apply to the deterministic synthetic reference matrix and are
-intended to guard the DSP implementation against regression. They are **not**
-blanket claims that a complete real-world measurement setup, audio interface,
-DUT, or analog loop has the same absolute measurement accuracy.
-
-
-#### Spectral Bench 1.2.0 Platform Status
-
-##### macOS — validated
-
-Spectral Bench 1.2.0 has been built, installed, and functionally tested on macOS.
-
-Completed checks:
-
-- Release build passed
-- all automated tests passed
-- Standalone launched and passed functional smoke testing
-- 20 Hz to 20 kHz / 100 Hz to 10 kHz view selection verified
-- Raw / Noise Smooth trace selection verified
-- Noise Smooth behavior checked with broadband-noise input
-- macOS 1.2.0 installer package built successfully
-- installer package installed successfully
-- installed Standalone launched successfully
-- installed AU bundle reports version 1.2.0
-- `auval -v aufx Sgnz Sn60` passed the full validation suite
-- Logic Pro loaded Spectral Bench 1.2.0 successfully
-- both new 1.2.0 controls were functionally verified in Logic Pro
-
-During validation, an obsolete user-level Spectral Bench 1.1.0 AU copy was found in `~/Library/Audio/Plug-Ins/Components`, while the 1.2.0 installer had correctly installed the current AU in `/Library/Audio/Plug-Ins/Components`. Removing the obsolete user-level copy resolved the host version ambiguity; subsequent `auval` correctly reported **Component Version 1.2.0 (0x10200)**.
-
-##### Windows x64 — retained at 1.1.0
-
-The validated Windows release remains **1.1.0**. Later macOS feature lines have not been ported or validated there, and no Windows update is currently scheduled.
-
-##### Linux x86_64 — retained at 1.1.0
-
-The validated Linux release remains **1.1.0**. Later macOS feature lines have not been ported or validated there, and no Linux update is currently scheduled.
-
-The existing 1.1.0 cross-platform validation record remains valid and should be retained.
-
-
-#### Cross-Platform Release Validation
-
-The finalized Spectral Bench 1.1.0 source state has completed native validation on all three target platforms.
-
-##### macOS
-- automated test suite and deterministic reference validation passed
-- Standalone tested
-- Audio Unit validated with `auval` and smoke-tested in Logic Pro
-- VST3 metadata checked
-- 1.1.0 package built, installed, and smoke-tested
-- CSV/TXT/PNG Save Result export functionally verified
-
-##### Windows x64
-- Release build and automated tests passed
-- installer built and tested
-- installed Standalone and VST3 validated
-- CSV/TXT/PNG result export validated
-
-##### Linux x86_64
-- Release build and automated tests passed
-- portable package validated
-- installed Standalone and VST3 validated
-- desktop integration validated
-- CSV/TXT/PNG result export validated
-
-Build warnings and validation failures remain release blockers until understood and deliberately resolved.
-
-#### Current Realtime Validation Checkpoint
-
-The realtime analyzer has been exercised natively on macOS Standalone with live interface input; the finalized 1.1.0 source state has additionally completed the cross-platform validation summarized above.
-
-Observed checkpoint:
-
-- processor input and analyzer sample peak agree
-- 1 kHz sine at approximately -6 dBFS reads approximately -6 dBFS peak
-- sine RMS settles approximately 3.01 dB below peak
-- calibrated FFT places the 1 kHz tone at the expected amplitude
-- all supported FFT sizes can be selected
-- all supported window functions can be selected
-- averaging Off/Fast/Medium/Slow operates
-- peak Off/Hold/Decay and peak reset operate
-- display floors through -140 dBFS operate
-- current automated tests pass
-
-Development diagnostics currently include FIFO drop counts and exact overlap continuity checks between consecutive analysis frames.
-
-A longer steady-tone run has shown:
+The defined stimulus is:
 
 ```text
-Drops        = 0
-Frame errors = 0
+fL = 60 Hz
+fH = 7 kHz
+low/high amplitude ratio = 4:1
 ```
 
-The earlier occasional broadband burst has not been observed during the latest validation run, but the diagnostics remain enabled until broader testing is complete.
+A 4:1 amplitude ratio is approximately 12.041 dB.
 
-The current automated suite includes deterministic validation for THD, THD+N, SMPTE-style selective product measurements, and CCIF product measurements.
+The analyzer explicitly inspects the second-order sideband pair at 6940 and 7060 Hz and the third-order pair at 6880 and 7120 Hz. Products are reported numerically in dBc.
 
-#### Pink-noise dBFS/bin validation
+Again, **SMPTE-style** is deliberate terminology. The selective sideband measurements are fully defined, but Spectral Bench does not present them as a normative aggregate SMPTE IMD percentage.
 
-The spectrum calibration was checked using Signal Bench pink noise routed
-digitally through BlackHole into Spectral Bench.
+Signal Bench includes matching SMPTE-style and CCIF presets, reducing the chance that generator and analyzer settings are accidentally mismatched.
 
-Test conditions:
+## 4.12 Referenced frequency-response sweep
 
-```text
-Signal Bench: Pink, 0 dB
-Spectral Bench: Blackman-Harris
-Averaging: Slow
-Peak: Off
-View: 0 dB
-Hold: Off
-Capture: 15 s statistics
-```
+macOS 2.1.0 adds automated sweep measurement with a DUT path and an optional reference path.
 
-Measured results:
+For a referenced transfer measurement, wire the generator to both the DUT and reference paths so that the analyzer captures the DUT response and the reference response during the same measurement. The reported transfer magnitude is based on the relationship between those paths rather than on the absolute DUT capture alone.
 
-```text
-FFT      RMS dBFS    1 kHz/bin dBFS    Delta      Frames
-4096      -14.40        -39.53            --         284
-8192      -14.65        -42.59          -3.06        282
-16384     -15.34        -45.44          -2.85        177
-32768     -13.99        -48.36          -2.92         89
-65536     -15.01        -51.10          -2.74         45
-```
+A direct dual-channel loopback is the best first qualification step. It exposes channel mismatch and confirms that the reference path is wired and selected correctly before a DUT is introduced.
 
-The theoretical broadband-noise change for each FFT-size doubling is:
+Use **Transfer** when the question is the DUT response relative to a reference. Use **Actual** when the absolute captured response is the quantity of interest.
 
-```text
--10 log10(2) = -3.0103 dB
-```
+<!-- FIGURE PLACEHOLDER: Figure 4.3
+Application: Spectral Bench
+Subject: Referenced sweep setup
+Show: Sweep controls, DUT input/output selections, Reference input/path, Transfer result and phase controls.
+Crop: Application window only.
+Suggested size: full text width
+Caption: Spectral Bench configured for a referenced DUT transfer sweep.
+-->
 
-The measured per-doubling changes were:
+**Figure 4.3.** Referenced DUT transfer sweep.
 
-```text
--3.06 dB
--2.85 dB
--2.92 dB
--2.74 dB
-```
+## 4.13 Transfer versus Actual response
 
-This is considered a successful validation of the current dBFS/bin spectrum
-behavior.
+**Transfer** answers the relative question: what did the DUT path do compared with the simultaneously measured reference path?
 
-The RMS values varied stochastically across independent 15-second pink-noise
-captures, but did not show a systematic FFT-size-dependent trend.
+**Actual** shows the captured DUT response itself. It is useful when an absolute system response is wanted or when a suitable reference path is not available.
 
-The 65536-point FFT also takes visibly longer to settle after a configuration
-change than smaller FFT sizes. This is expected because long FFT frames and
-large hop sizes produce fewer fresh analysis frames per unit time.
+Do not interpret an unreferenced Actual trace as if interface, cable and channel response had automatically been divided out. Conversely, a referenced Transfer measurement is only as meaningful as the reference path and channel matching used to create it.
 
-No claim is made here for dBFS/Hz power spectral density, because that
-representation is not implemented.
+## 4.14 Phase modes
 
-#### 1.1.0 CSV export validation
+Phase is inherently reference-dependent. Spectral Bench 2.1.0 therefore exposes four distinct modes rather than pretending there is one universally correct phase trace.
 
-The measurement CSV exporter is deterministic for a supplied snapshot/context. Automated coverage should verify:
+### Raw
 
-- fixed column/header order
-- CSV quoting of textual metadata
-- valid numeric fields are emitted
-- invalid/not-applicable result fields are empty
-- CCIF/SMPTE stimulus-valid flags are preserved
-- the companion text report contains provenance and only the mode-relevant result section
-- Save Result also writes a non-empty PNG rendered from the Spectrum component
+Raw preserves the measured phase relationship, including transport delay. A constant delay appears as a frequency-dependent phase slope and repeated wraps.
 
+Use Raw when that complete measured relationship is the quantity of interest.
 
-#### Spectral Bench 2.1.0 macOS release validation
+### Auto
 
-Status: **complete/released**. Native macOS Release build, the full 20-test automated suite, sweep/phase physical qualification, guided Baseline A/B qualification, Help/UI manvis, export terminology verification, package qualification, and installed-artifact smoke checks are complete. The final package clean-installed Standalone, AU, and VST3 at the intended system locations. The AU passed full `auval`; VST3 version/bundle/vendor metadata were verified; and the installed Standalone passed basic sweep, Transfer, Actual, and Phase functional checks.
+Auto estimates and removes a response-dependent constant-delay component to make the remaining phase easier to inspect. This is a presentation/reference choice, not an independent latency measurement.
 
-Validated in Standalone: logarithmic X behavior across preset/Custom views, adaptive engineering grid behavior, 10-120 dB spans, coupled dB Top/Floor/Span behavior with Top/Floor zoom anchoring, Input Gain independence from the display viewport, cold-open crosshair hover, stable fixed Trace/Cursor readouts, Command-S Save Result, and cursor/trace capture in saved PNG/data. Automated suite: 20/20 passed. Final package validation confirmed version 2.1.0 and the expected Standalone/AU/VST3 installation payload.
+The delay/linear-phase ambiguity means that a frequency-response measurement alone cannot always separate pure transport delay from linear phase belonging to the DUT response. Auto can therefore produce a useful phase view without equalling the physical latency measured by Latency Bench.
 
-Windows x64 and Linux x86_64 remain on the validated 1.1.0 baseline. No Windows/Linux update is currently scheduled; they are outside the active roadmap.
+### Manual
 
-#### macOS 2.1.0 Sweep and Phase Physical Qualification
+Manual applies a user-specified delay compensation. This is the correct mode when the transport latency is known independently and the goal is to inspect phase after removing that known constant-delay component.
 
-The referenced sweep architecture was physically qualified with direct dual-channel loopback and a Neural DSP Quad Cortex DUT. Direct loopback channel swapping produced equal-and-opposite small high-frequency phase slope, confirming that the remaining phase is real physical channel/path mismatch rather than an estimator artifact.
+For example, a physical qualification path measured by Latency Bench at 48 kHz produced 89.15 samples / 1.857 ms. Entering that independently measured value in Spectral Bench Manual phase removed the expected constant-delay component and produced an essentially flat LPF-off response through the useful band.
 
-Magnitude repeatability in direct loopback was approximately 0.000023 dB worst-case over 30 Hz-18 kHz across repeated sweeps. Known 1 kHz 12 dB/oct and 24 dB/oct low-pass responses behaved as expected. Level-dependence checks at -6, -12, -24 and -48 dBFS passed, and physical sweep checks covered 44.1, 48 and 96 kHz plus representative 16, 64 and 512 sample buffers.
+### Baseline A/B
 
-Phase-mode qualification used the Quad Cortex. Raw preserved the DUT transport-delay slope. Auto produced a useful response-dependent compensation estimate, but that estimate differed from the independently measured DUT latency, as expected from the delay/linear-phase ambiguity. Latency Bench measured the tested QC path at 89.15 samples / 1.857 ms at 48 kHz, while Spectral Bench Auto estimated about 1.42 ms for the tested response. Entering the independently measured 1.857 ms in Manual removed the expected constant-delay phase component and produced an essentially flat LPF-off response through the useful band.
+Baseline uses a stored reference measurement and shows subsequent phase relative to it. The guided A/B workflow is particularly useful for measurements such as filter Off versus filter On, where the common transport delay should disappear and the phase change caused by the DUT state is the desired result.
 
-The guided Baseline A/B workflow passed two physical tests: LPF off -> 1 kHz LPF on produced the expected baseline-relative filter phase without transport-delay wraps, and LPF off -> LPF off produced an essentially 0-degree null across the displayed band. These results validate the semantics of Raw, Auto, Manual and Baseline as distinct explicit phase references rather than interchangeable latency estimators.
+In qualification, LPF Off as baseline followed by a 1 kHz LPF On measurement produced the expected filter phase without transport-delay wraps. Off followed by Off produced an essentially 0-degree null across the displayed band.
 
+<!-- FIGURE PLACEHOLDER: Figure 4.4
+Application: Spectral Bench
+Subject: Phase reference modes
+Show: Phase mode control with Raw, Auto, Manual and Baseline choices, plus Manual delay or Baseline status where applicable.
+Crop: Relevant sweep/phase control area and enough graph to show the phase trace.
+Suggested size: full text width
+Caption: Raw, Auto, Manual and Baseline are explicit phase-reference choices, not interchangeable latency estimators.
+-->
 
-#### macOS 2.1.0 Export Terminology Qualification
+**Figure 4.4.** Spectral Bench phase-reference modes.
 
-The final export wording distinguishes live analyzer state from completed sweep state. CSV uses `analyzer_mode` for the analyzer measurement selector and `sweep_type` for the appended referenced sweep. TXT uses `Analyzer mode:` and `Sweep type:` respectively. Phase exports also record the selected phase mode and, for Auto/Manual, the applied compensation in milliseconds. This avoids the previous ambiguous combination of a top-level `Mode: Manual Tone` line and a separate sweep result in the same report.
+## 4.15 Why phase and latency must not be confused
 
-## 4.5 Architecture reference
+A measured transfer function cannot in general distinguish an arbitrary constant transport delay from an equivalent linear phase term solely from the frequency-domain response. This is why Spectral Bench Auto compensation and Latency Bench can legitimately report different delay values for the same physical DUT path.
 
-#### Purpose
+During physical qualification with a Neural DSP Quad Cortex, Latency Bench measured 89.15 samples / 1.857 ms at 48 kHz while Spectral Bench Auto estimated about 1.42 ms for the tested response. Manual compensation with the independently measured 1.857 ms behaved as expected.
 
-This document describes the implemented Spectral Bench architecture. The portable 1.1.0 foundation remains the Windows/Linux baseline, while the current macOS architecture includes the released 2.1.0 viewport, referenced sweep, Actual-response, and phase systems.
-
-#### Primary Boundaries
-
-There are three independent concerns:
-
-1. real-time audio capture
-2. measurement / analysis
-3. presentation
-
-The UI must not define measurement semantics.
-
-The plugin and standalone wrappers must not contain analyzer DSP.
-
-#### High-Level Data Flow
-
-```text
-Audio input
-    |
-    +--> time-domain meter path
-    |      RMS
-    |      rolling sample peak
-    |
-    v
-Analysis sample FIFO
-    |
-    v
-Analysis frame builder
-    |  N samples
-    |  hop N/4
-    |
-    +------------------------------+
-    |                              |
-    v                              v
-Window + FFT                 tone measurement
-    |                              |
-    v                              +--> FFT-assisted initial frequency
-calibrated spectrum                |
-    |                              +--> least-squares frequency refinement
-    +--> power averaging           |
-    |                              +--> fitted fundamental/harmonics
-    +--> spectral peak hold        |
-    |                              +--> fundamental subtraction
-    |                              |       |
-    |                              |       v
-    |                              |   residual FFT
-    |                              |       |
-    |                              |       v
-    |                              |   THD+N band integration
-    |                              |
-    +-------------+----------------+
-                  |
-                  v
-          MeasurementSnapshot
-                  |
-                  v
-                 UI
-```
+Use Latency Bench when the quantity required is physical-path latency. Use Spectral Bench phase modes when the quantity required is phase referenced according to Raw, Auto, known-delay Manual or A/B Baseline semantics.
 
-#### Real-Time Audio Thread
+## 4.16 Saving a result
 
-The audio callback may:
+`Save Result…` (`⌘S`) creates three companion files:
 
-- read/select the input channel
-- update preallocated time-domain meter accumulators
-- copy samples into a preallocated analysis FIFO
+- PNG, preserving the visual graph and active cursor/trace annotation;
+- CSV, for structured numeric data;
+- TXT, for a human-readable report and provenance.
 
-It must not:
+The export terminology distinguishes live analyzer state from completed sweep state. CSV uses `analyzer_mode` for the analyzer selector and `sweep_type` for the appended sweep. TXT uses `Analyzer mode:` and `Sweep type:`. Phase exports record the selected phase mode and, for Auto or Manual, the applied compensation in milliseconds.
 
-- allocate
-- perform FFTs
-- perform least-squares fitting
-- perform IMD/THD calculations
-- call UI code
-- wait on blocking locks
+This distinction matters when a report contains both a live analyzer mode such as Manual Tone and a completed referenced sweep.
 
-#### Analysis Scheduling
+## 4.17 macOS formats and installation
 
-FFT size is user-selectable.
+Spectral Bench 2.1.0 for macOS is qualified as Standalone, Audio Unit and VST3. The final package clean-installed all three at their intended system locations. The Audio Unit passed full `auval` validation, VST3 version/bundle/vendor metadata were verified, and the installed Standalone passed sweep, Transfer, Actual and Phase smoke tests.
 
-Analysis hop is fixed at:
+The handbook focuses on the qualified macOS release. Older cross-platform release history belongs in project/release documentation rather than the operating flow of this chapter.
 
-```text
-N / 4
-```
+## 4.18 Validation and qualification
 
-giving 75% overlap.
+The released macOS 2.1.0 build passes the full 20-test automated suite.
 
-Analysis is scheduled by sample availability, not repaint events.
+Physical sweep qualification used direct dual-channel loopback and a Neural DSP Quad Cortex DUT. Swapping direct-loopback channels produced equal-and-opposite small high-frequency phase slope, showing that the residual slope was physical channel/path mismatch rather than an estimator artifact.
 
-#### Spectrum Engine
+Repeated direct-loopback sweeps showed approximately `0.000023 dB` worst-case magnitude variation over 30 Hz to 18 kHz. Known 1 kHz 12 dB/oct and 24 dB/oct low-pass responses behaved as expected. Level-dependence checks at -6, -12, -24 and -48 dBFS passed.
 
-The spectrum engine owns:
+Physical sweep checks covered 44.1, 48 and 96 kHz and representative 16, 64 and 512 sample buffers. Qualification also covered Raw, Auto, Manual and Baseline phase semantics, guided Baseline A/B, viewport behavior, Input Gain independence from display zoom, cursor/readout behavior, `⌘S` export and final installed-artifact smoke tests.
 
-- window generation
-- coherent-gain metadata
-- window-energy metadata
-- ENBW metadata
-- FFT execution
-- one-sided amplitude calibration
-- broadband/noise power calibration
-- spectral averaging
-- spectral peak hold
+These tests establish the behavior of the qualified implementation under the tested conditions. They do not remove the need to validate the user's own interface, channels, reference path and DUT setup.
 
-The displayed spectrum is calibrated in dBFS.
+## 4.19 Practical measurement workflows
 
-#### Tone Measurement Engine
+### Live spectrum or noise inspection
 
-The tone measurement engine is separate from the display FFT even though the FFT provides its initial frequency estimate.
+Use Raw trace for detailed spectral structure. Medium averaging is a useful starting point for a steadier broadband display; Noise Smooth can make a Pink/White noise trace visually easier to read without changing numeric measurements. Use cursor/trace delta for local inspection.
 
-This is deliberate.
+### Single-tone distortion
 
-Precision harmonic and THD measurements must not become dependent on:
+Use a matching Signal Bench 100 Hz, 1 kHz or 10 kHz preset when possible. Confirm a valid fundamental, then read H2-H10, THD and THD+N. Record the THD+N bandwidth.
 
-- a tone landing exactly on an FFT bin
-- selected window main-lobe width
-- arbitrary bin-integration width
+### Intermodulation products
 
-The engine refines the tone using deterministic least-squares sinusoidal fitting on the analysis samples.
+Use the matching Signal Bench SMPTE-style or CCIF preset. Interpret the explicitly reported sidebands/products in dBc. Do not relabel them as normative aggregate SMPTE or CCIF percentages.
 
-#### THD+N Engine
+### DUT frequency response
 
-THD+N uses fitted-fundamental subtraction in the time domain followed by residual spectral power integration in an explicit bandwidth.
+First run a direct referenced loopback to qualify the two channels. Then insert the DUT in the DUT path and run Transfer. Use Actual only when the absolute captured response is what you intend to report.
 
-This avoids defining the fundamental notch as “remove one FFT bin”.
+### Filter phase
 
-#### Measurement Snapshot
+If transport delay should remain part of the result, use Raw. If the transport latency is known independently, use Manual and enter that value. For an A/B change such as filter Off versus On, Baseline is usually the clearest reference. Treat Auto as a useful response-dependent compensation, not as a substitute for Latency Bench.
 
-The analysis engine publishes immutable/coherent snapshots to the UI.
+## 4.20 Common interpretation errors
 
-A conceptual snapshot may contain:
+The most important traps are conceptual rather than numerical.
 
-```text
-input RMS
-input sample peak
+A narrower display range does not create a narrower measurement bandwidth. Input Gain is not merely a visual zoom. THD and THD+N are not interchangeable. A selective IM product is not automatically a normative aggregate IMD percentage. An Actual response is not automatically a referenced transfer function. Auto phase compensation is not a latency measurement. And a very stable result can still be wrong if the reference channel, DUT path or physical wiring is wrong.
 
-spectrum data
-peak-hold spectrum
-
-nominal test definition
-measurement validity
-
-measured fundamental frequency
-fundamental amplitude
-
-harmonic products
-THD
-THD+N
-THD+N bandwidth
-
-IMD product levels
-IMD aggregate result when normatively defined
-```
-
-The exact C++ type is an implementation detail.
-
-#### UI Update Rate
-
-UI repaint rate and analysis rate are independent.
-
-The UI may repaint more frequently than new FFT data arrives, but it must never manufacture intermediate measurement results.
-
-#### Shared Test Definitions
-
-Signal Bench and Spectral Bench should eventually share a small, platform-independent test-definition module.
-
-It should contain data and derivation rules, not JUCE UI code.
-
-Conceptually:
-
-```cpp
-struct ToneDefinition
-{
-    double frequencyHz;
-    double relativeLevelDb;
-};
-
-struct ProductDefinition
-{
-    int coefficientF1;
-    int coefficientF2;
-    const char* label;
-};
-
-struct TestDefinition
-{
-    TestId id;
-    const char* name;
-    MeasurementType type;
-    std::vector<ToneDefinition> tones;
-    std::vector<ProductDefinition> products;
-};
-```
-
-The representation shown here is illustrative.
-
-A product such as:
-
-```text
-2*f1 - f2
-```
-
-should be derived from the stimulus definition rather than separately hard-coded as an unrelated absolute frequency.
-
-#### Runtime Independence
-
-Spectral Bench 1.1.0 requires no runtime communication with Signal Bench.
-
-There is no:
-
-- IPC
-- plugin-to-plugin connection
-- automatic mode switching
-- automatic test sequencing
-
-Shared definitions are a source-level compatibility mechanism.
-
-#### Platform Boundary
-
-DSP and measurement code must remain portable C++.
-
-JUCE is used for cross-platform application/plugin infrastructure.
-
-Platform-specific code should be confined to wrappers, build configuration, installation, and packaging wherever possible.
-
-#### Spectrum Processing Controls
-
-Spectrum post-processing belongs to the analysis engine rather than the UI.
-
-The processing order is conceptually:
-
-```text
-input samples
-    -> overlapped analysis frame
-    -> window
-    -> calibrated FFT
-    -> power-domain averaging
-    -> peak hold / peak decay
-    -> immutable MeasurementSnapshot
-    -> UI
-```
-
-The UI requests configuration changes, but the analysis worker owns and applies the actual FFT/window/averaging/peak state.
-
-Current 1.1.0 spectrum controls are:
-
-- FFT size: 4096, 8192, 16384, 32768, 65536
-- Hann, 4-term Blackman-Harris, Flat Top
-- averaging Off/Fast/Medium/Slow
-- peak Off/Hold/Decay
-- explicit peak reset
-- display floor -80/-100/-120/-140 dBFS
-
-Changing FFT size or window causes the analysis engine to rebuild the relevant analysis state on the worker side.
-
-#### Standalone Wrapper
-
-Spectral Bench uses a custom JUCE standalone application.
-
-This exists because JUCE's standard StandalonePluginHolder mutes audio input by default for feedback protection. Spectral Bench is an analyzer, so live Standalone input is expected.
-
-This behavior is isolated to the Standalone target and does not affect AU or VST3.
-
-#### Realtime Continuity Diagnostics
-
-During development, Spectral Bench records:
-
-- dropped input blocks
-- dropped input samples
-- FFT-frame overlap continuity errors
-
-With 75% overlap, consecutive frames share `N - N/4` samples. Those overlapping samples must be identical. Any mismatch increments the frame-continuity error counter.
-
-These diagnostics are development instrumentation and do not define user-facing measurement semantics.
-
-#### 1.2.0 trace-presentation layer
-
-Spectral Bench 1.2.0 adds a user-selectable **100 Hz to 10 kHz** zoomed view alongside the normal **20 Hz to 20 kHz** view and adds explicit **Raw / Noise Smooth** trace presentation.
-
-This display layer remains downstream of the calibrated analyzer results. It does not change FFT calibration, analyzer confidence, numeric distortion measurements, cursor source data, or authoritative numeric exports. Raw presentation remains selectable, and the active presentation mode is explicit in the UI.
-
-The 1.2.0 layer was validated on macOS and was subsequently incorporated into the macOS 2.x line. Windows and Linux remain intentionally on the validated 1.1.0 baseline; no port is currently scheduled.
-
-
-#### 2.0.1 macOS viewport architecture
-
-The macOS 2.0.1 UI extends the spectrum display as an instrument-style viewport. Frequency zoom remains strictly logarithmic: selecting a preset or Custom changes only the visible frequency limits. The X mapping remains log10-based. Custom grid lines are generated from 1-2-5 engineering frequencies per decade and labels are thinned according to available pixel spacing.
-
-The Y viewport is expressed as span plus vertical position. Span is selectable from 120 dB down to 10 dB; position selects the visible dBFS region. Horizontal grid density adapts to the visible span. These are presentation controls and do not modify analyzer calibration.
-
-Input Gain is separate from viewport position. On macOS it is applied only to the selected analysis-channel samples before they are submitted to AnalysisEngine; the plugin audio pass-through remains unchanged.
-
-The dB viewport has one canonical Top/Floor/Span state, with `Span = Top - Floor`. Editing Top or Floor makes that boundary the current zoom anchor; editing Span preserves the current anchor and moves the opposite boundary. The UI controls, graph mapping, and Save Result metadata are all updated from the same canonical state.
-
-The macOS 2.0.1 cursor is a display/measurement layer. Mouse X is converted through the same logarithmic viewport mapping and mouse Y through the active dB viewport. The trace value at the same X is interpolated from analyzer bins. Trace and Cursor readouts are fixed at the top-right of the plot for stable instrument-style presentation. Save Result can freeze the last valid cursor measurement so Command-S preserves the measurement point while the save dialog is opened; the frozen state is used by PNG and numeric/text export.
-
-Windows and Linux retain the validated 1.1.0 behavior and version and are outside the current development roadmap.
-
-#### macOS 2.1.0 Sweep / Transfer Architecture
-
-The production sweep path is a two-channel referenced measurement. The generator renders the deterministic logarithmic sweep once and copies the exact samples to both output channels. One complete output/input path is the DUT and the other is the reference. Swapping DUT channel swaps both output and input roles.
-
-Magnitude/Actual use the qualified integer-delay alignment path. Phase has separate explicit interpretation modes: Raw, Auto, Baseline and Manual. Raw mathematically restores the measured relative delay after coherent sweep projection; Auto applies the estimator-derived constant compensation; Manual subtracts exactly the requested constant delay; Baseline compares the current complex referenced response against a stored physical baseline. These phase choices do not alter the qualified magnitude/Actual estimator path.
-
-The guided Baseline A/B UI is orchestration only. It runs the same underlying sweep engine twice, stores the first completed capture as the baseline, pauses only for the physical DUT-state change, then publishes the second result relative to the baseline.
-
-
-#### macOS 2.1.0 Export Identity
-
-The export model keeps live analyzer state and completed sweep state distinct. The base measurement snapshot records `analyzer_mode`; when a completed sweep is available, a separate sweep section records `sweep_type`, sweep settings, DUT/reference routing, phase mode, and applicable phase compensation. The human-readable report follows the same distinction with `Analyzer mode:` and `Sweep type:` labels. This prevents a current live analyzer selection such as Manual Tone from being mistaken for the type of a saved sweep result.
+When the result matters, save it together with enough setup information to reconstruct what was actually measured.
 
 # 5. Latency Bench
 
