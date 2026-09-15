@@ -1,18 +1,18 @@
 # 60°N Signal Works Audio Bench Suite Handbook
 
-**Mac edition — canonical Markdown source**
+**macOS edition — canonical Markdown source**
 
 **Status:** Working publication source  
 **Applications:** Matrix Bench, MIDI Bench, Signal Bench, Spectral Bench, Latency Bench  
 **Purpose:** Comprehensive user manual, measurement guide, validation reference, and technical handbook.
 
-> This Markdown file is the maintainable source edition. A publication copy can later be converted to DOCX for manual screenshot placement, page layout, and final PDF production. Figure placeholders are intentional and should be replaced with real screenshots, photographs, or manually prepared diagrams.
+> This Markdown file is the maintainable source edition of the handbook. It documents the current macOS releases of the Audio Bench Suite. Windows and Linux are mentioned only where platform context is technically useful. A publication copy can later be generated as DOCX for manual screenshot placement and page layout, followed by final PDF production. Figure placeholders are intentional and are to be replaced with real screenshots, photographs, or manually prepared diagrams.
 
 ## How to use this handbook
 
-The book is deliberately layered. For day-to-day use, start with the practical instructions in the relevant Bench chapter. For interpretation and engineering detail, continue into the measurement-method, validation, and technical-reference sections.
+The handbook is deliberately layered. If the immediate goal is to make a measurement or use an application, go directly to the relevant Bench chapter. For interpretation, uncertainty, validation and implementation detail, continue into the measurement fundamentals, workflow, validation and technical-reference chapters.
 
-The individual project Markdown files remain the engineering source of truth. This handbook reorganizes that material into one suite-level publication and adds cross-tool guidance.
+The individual project documentation remains the engineering source material for each application. This handbook reorganizes and edits that material into a coherent suite-level publication. It is not intended to reproduce project READMEs verbatim or expose development history where that history does not help the user operate or understand the tools.
 
 ## Which Bench should I use?
 
@@ -20,72 +20,189 @@ The individual project Markdown files remain the engineering source of truth. Th
 | --- | --- | --- |
 | Generate tones, noise, two-tone/IM and other test stimuli | **Signal Bench** | Spectral Bench |
 | Inspect spectrum, level, harmonics, THD/THD+N, IMD, sweeps and phase | **Spectral Bench** | Signal Bench |
-| Measure physical-path or DUT latency | **Latency Bench** | External routing / Matrix Bench |
+| Measure physical-path or DUT latency | **Latency Bench** | Matrix Bench / external routing |
 | Route, split, mix, process and monitor physical and virtual audio | **Matrix Bench** | All audio Benches |
 | Monitor, transmit and sequence MIDI | **MIDI Bench** | MIDI-controlled DUTs |
 
 ## Measurement mindset
 
-A result is meaningful only when the signal path, levels, sample rate, routing and measurement definition are understood.
+The Bench applications are tools, not substitutes for defining the measurement. A numerically precise result can still answer the wrong question if the signal path, level, sample rate, routing or measurement definition is wrong.
 
-1. **Know what is being measured.** Transport latency, complete filtered-response timing, THD, THD+N and a spectrum trace answer different questions.
-2. **Keep the path valid.** Avoid clipping, unintended feedback, wrong channels and accidental processing.
-3. **Validate important results.** Repeatability, reference loopbacks and known-good configurations are part of serious measurement work.
+1. **Define what is being measured.** Transport latency, complete filtered-response timing, THD, THD+N, IMD and a spectrum trace answer different questions.
+2. **Control the signal path.** Avoid clipping, unintended feedback, wrong channels, accidental sample-rate conversion and processing that is not part of the intended DUT path.
+3. **Establish a reference.** A cable loopback, baseline, known signal or other reference separates the DUT from the measurement setup where the method allows it.
+4. **Check repeatability.** Repeated measurements expose unstable routing, clocking, signal conditions and ambiguous estimators.
+5. **Record enough context to reproduce the result.** Application version, device, sample rate, channel routing, relevant buffer settings, DUT state and measurement settings all matter.
 
-# 1. Suite overview and installation
+# 1. Audio Bench Suite
 
-The Audio Bench Suite is a collection of focused engineering tools rather than one monolithic application. Each Bench has a narrow primary job, while practical workflows can combine several tools.
+## 1.1 Purpose and scope
 
-The intended macOS installation location is:
+The 60°N Signal Works Audio Bench Suite is a collection of focused macOS engineering tools rather than one monolithic measurement application. Each Bench has a narrow primary responsibility, and the applications can be combined when a measurement needs generation, routing, analysis, timing or MIDI control at the same time.
+
+The suite currently consists of:
+
+- **Signal Bench**, deterministic audio test-signal generation.
+- **Spectral Bench**, spectral, level, distortion, sweep and phase analysis.
+- **Latency Bench**, physical-path and DUT latency measurement.
+- **Matrix Bench**, low-latency physical and virtual audio routing, mixing, monitoring and utility processing.
+- **MIDI Bench**, MIDI monitoring, transmission and deterministic command-file sequencing.
+
+The handbook's primary target is the latest qualified macOS release of each application. Historical versions and other operating systems are discussed only when they explain compatibility, measurement behavior or a relevant implementation detail.
+
+## 1.2 Installation model
+
+The intended macOS installation location for the applications is:
 
 `/Applications/60°N Signal Works Audio Bench Suite`
 
-Installer standardization is handled separately from this handbook. When reproducing a documented result, verify the application version actually being used.
-
+Suite-level installer standardization is a separate distribution task. Until a consolidated installer is qualified, the individual application packages remain the installation units. When reproducing an older measurement, verify the application version actually used rather than assuming that a current installation behaves identically in every implementation detail.
 
 <!-- FIGURE PLACEHOLDER: Figure 1.1
 Application: Audio Bench Suite
 Subject: Installed Bench applications
-Show: The five released Bench applications together in Finder or the suite installation folder.
+Show: The five current macOS Bench applications together in Finder in the suite installation folder.
+Crop: Finder window or suite folder contents only; exclude unrelated desktop items.
 Suggested size: full text width
-Caption: The Audio Bench Suite applications installed on macOS.
+Caption: The five Audio Bench Suite applications installed on macOS.
 -->
 
-**Figure 1.1.** The Audio Bench Suite applications installed on macOS.
+**Figure 1.1.** The five Audio Bench Suite applications installed on macOS.
 
+## 1.3 A practical way to choose the tool
 
-## 1.1 Common setup principles
+Start from the physical question rather than from the application. If the DUT needs a known stimulus, start with Signal Bench. If the unknown is spectral behavior, distortion or phase, use Spectral Bench. If the unknown is elapsed time through a physical path, use Latency Bench. Use Matrix Bench when the difficulty is routing, monitoring, splitting or combining physical and virtual paths. Use MIDI Bench when repeatable MIDI control or observation is part of the test.
 
-For audio measurements, use a known audio interface and explicit input/output channels. Set the intended sample rate before the test. Where buffer size matters, choose it intentionally and record it. Disable unrelated processing unless it is intentionally part of the DUT path.
+A single experiment may use several Benches. For example, Signal Bench can excite a DUT while Spectral Bench observes its output. Matrix Bench can provide repeatable routing around that setup. MIDI Bench can change DUT states between measurements. Latency Bench is deliberately more self-contained because its timing estimator generates and captures its own probe.
 
-For physical loopback tests, label cables and channels. Many apparently complex measurement failures are ultimately routing errors.
+## 1.4 Common setup principles
 
-## 1.2 Reproducibility
+Use a known audio interface and explicit input/output channels. Set the intended sample rate before beginning a measurement. Where buffer size is relevant, choose it intentionally and record it. Disable unrelated processing unless it is deliberately part of the path under test.
 
-Save enough context to reproduce a result: Bench/version, sample rate, buffer size where relevant, device and channel routing, DUT state, filter/processing settings, and baseline/reference state.
+For physical loopback work, label cables and channels. Verify routing at a conservative level before increasing signal level. A surprising number of apparent algorithmic or DUT failures are actually wrong-channel, wrong-loop or gain-staging errors.
+
+Bluetooth and aggregate or virtual routing deserve extra attention because they can introduce fixed sample-rate constraints, additional buffering, sample-rate conversion or independent clock domains. Those effects are not automatically measurement errors; they become errors when they are present but not part of the quantity the test is meant to measure.
+
+## 1.5 Reproducibility record
+
+For measurements worth keeping, record at least:
+
+- Bench name and version;
+- macOS audio device and relevant input/output channels;
+- sample rate;
+- buffer size where it can affect the result;
+- DUT identity and state;
+- physical and virtual routing;
+- generator and analyzer settings;
+- baseline/reference state where applicable;
+- repeated-run statistics or other evidence of stability when the tool provides them.
+
+Saved result files should be kept with enough human-readable context that they still make sense after the physical setup has been dismantled.
 
 # 2. Audio and measurement fundamentals
 
-## 2.1 Levels and dBFS
+This chapter establishes the conventions used throughout the handbook. The individual Bench chapters provide application-specific detail, but the same distinctions between digital level, analog level, samples, time, phase and physical signal paths apply everywhere.
 
-The Bench tools use digital full scale as the primary digital level reference. Sample peak, RMS, spectral tone amplitude and per-bin spectrum level are different quantities and must not be treated as interchangeable.
+## 2.1 Digital level and dBFS
 
-## 2.2 Sample rate and time
+The audio Benches use digital full scale as the primary digital amplitude reference. `0 dBFS` is the maximum representable reference level of the digital system; it is not an analog voltage. A setting of, for example, `-20 dBFS` says nothing by itself about volts at an interface output or volts arriving at a DUT input. The analog value also depends on interface calibration, output gain, input sensitivity and any intervening analog gain or attenuation.
 
-At 48 kHz, one sample represents approximately 20.833 µs. Buffer size can contribute to end-to-end latency, but hardware buffering, drivers, callback behavior, clock domains and sample-rate conversion can also matter.
+Peak, RMS and spectral level are also different quantities. A sine wave's peak level, its RMS level and the amplitude reported for its FFT component are related only when the measurement convention is known. Likewise, broadband-noise RMS cannot be compared directly with the level of one FFT bin without accounting for bandwidth and analyzer normalization.
 
-## 2.3 Frequency response, phase and group delay
+The practical rule is simple: compare like with like, and state the level convention when the distinction matters.
 
-Filtering changes both magnitude and phase. A steep HPF, LPF, crossover or band-pass can introduce substantial frequency-dependent group delay. Therefore the timing of a complete filtered response can differ greatly from the bare transport latency of the same device.
+## 2.2 Headroom, clipping and gain staging
 
-## 2.4 Correlation and timing ambiguity
+Digital clipping occurs when a signal exceeds the representable range at a point in the digital path. Analog clipping can occur earlier or later in the chain even while the digital meter appears safe. Conversely, a signal can be so low that analog noise, converter noise or numerical uncertainty dominates the measurement.
 
-Correlation-based timing searches for the relative displacement that best aligns related signals. Strong filtering can broaden correlation lobes or create competing peaks. A trustworthy tool must be able to reject an ambiguous timing interpretation rather than always returning a number.
+For test work, begin conservatively, verify the path, then raise the stimulus only as far as needed for useful signal-to-noise ratio and DUT operating level. If distortion is being measured, distinguish distortion intentionally produced by the DUT from clipping accidentally produced by the generator, interface or analyzer input.
 
-## 2.5 FFT-based measurements
+## 2.3 Sample rate, samples and time
 
-FFT size, window choice, coherent gain, equivalent noise bandwidth and averaging affect spectral interpretation. Spectral Bench documents these semantics explicitly.
+A sampled system represents time in discrete intervals. At sample rate `Fs`, one sample corresponds to:
 
+`sample time = 1 / Fs`
+
+At 48 kHz, one sample is approximately `20.833 µs`; 48 samples equal 1 ms. At 44.1 kHz, one sample is approximately `22.676 µs`.
+
+Latency Bench can report fractional-sample timing because its correlation peak is interpolated rather than restricted to an integer sample index. Fractional-sample reporting does not imply that the audio interface physically delays data by a fractional hardware sample; it is an estimate of relative timing from the captured waveform.
+
+## 2.4 Buffer size is not the same as latency
+
+Audio buffer size affects scheduling and can be a major component of end-to-end latency, but it is not itself a complete latency specification. Hardware safety buffers, converter filters, USB or other transport buffering, driver behavior, application callbacks, independent clock domains and sample-rate conversion can all contribute.
+
+The same distinction matters in the opposite direction: a client callback size does not necessarily reveal every internal hardware or driver buffer in the path. When latency matters, measure the path that matters rather than calculating a result from one buffer-size field alone.
+
+## 2.5 Frequency, bandwidth and spectral resolution
+
+Frequency describes periodic rate; bandwidth describes a range of frequencies. In FFT analysis, the nominal bin spacing is determined by sample rate and FFT length. A larger FFT provides finer bin spacing but represents a longer time record. Windowing changes spectral leakage and the effective noise bandwidth, so bin spacing alone does not describe the analyzer's ability to separate or quantify arbitrary components.
+
+For broadband measurements, bandwidth is part of the result. Noise integrated over a wider bandwidth normally contains more total power than the same noise process integrated over a narrower bandwidth. This is one reason THD and THD+N must not be treated as interchangeable measurements.
+
+## 2.6 FFT windows, coherent gain and noise bandwidth
+
+An FFT operates on a finite block. Unless the captured waveform joins perfectly at the block boundaries, treating that block as periodic produces leakage. A window weights the block to control that leakage, but the weighting changes amplitude and noise behavior.
+
+Two corrections therefore matter in a calibrated analyzer:
+
+- **coherent gain**, which relates the windowed FFT amplitude of a coherent tone to its true amplitude;
+- **equivalent noise bandwidth (ENBW)**, which describes the noise bandwidth represented by a windowed FFT bin.
+
+Spectral Bench defines its own spectrum and measurement semantics in detail. Do not infer calibrated tone or noise values from an arbitrary FFT display without knowing these conventions.
+
+## 2.7 Frequency response, phase and polarity
+
+Frequency response is complex: it has both magnitude and phase. A filter can leave a frequency's magnitude nearly unchanged while rotating its phase, or strongly change both.
+
+Polarity is a separate concept. Reversing polarity multiplies the waveform by `-1`, equivalent to a 180-degree phase inversion at every frequency in the ideal linear case. A constant polarity reversal is therefore not the same thing as frequency-dependent phase shift.
+
+This distinction matters in both spectral and timing work. A correlation method that uses correlation magnitude can still identify a time offset through an inverted path, while preserving the sign of the raw correlation as useful evidence about polarity. The application-specific estimator rules are documented in the Latency Bench chapter.
+
+## 2.8 Phase delay and group delay
+
+A causal filter necessarily has phase behavior associated with its transfer function. Group delay describes how phase slope varies with frequency and is especially important for bandwidth-limited signals, crossovers and steep filters.
+
+This leads to a critical interpretation rule for latency measurements: the timing of a **complete filtered response** is not necessarily the same quantity as the DUT's bare digital transport latency. A steep HPF, LPF, crossover or band-pass can shift the dominant correlation timing by several milliseconds even if the underlying transport delay is unchanged.
+
+Neither result is inherently wrong. They answer different questions. The measurement setup and report must make clear which quantity is being interpreted.
+
+## 2.9 Correlation and time-of-arrival estimation
+
+Cross-correlation compares two signals while shifting one relative to the other. A peak indicates the displacement at which the signals are most alike according to the estimator. With a broadband deterministic probe, this can provide precise relative timing even when the DUT changes level or introduces moderate linear filtering.
+
+The highest numerical peak is not automatically trustworthy. Strong filtering can broaden a correlation lobe, reduce overlap, or create several plausible peaks. A robust estimator therefore needs evidence and ambiguity rules in addition to peak finding. Latency Bench deliberately rejects measurements when competing timing interpretations are too close rather than forcing every capture into a result.
+
+## 2.10 Repeatability, accuracy and uncertainty
+
+These terms answer different questions. **Repeatability** describes how closely repeated measurements agree under the same conditions. **Accuracy** describes closeness to the quantity intended to be measured. A result can be extremely repeatable yet systematically wrong because the baseline, routing or interpretation is wrong.
+
+Measurement uncertainty includes more than statistical run-to-run variation. Device clocks, analog noise, estimator behavior, filter phase, sample-rate conversion, channel mismatch and setup changes can all matter. Where a Bench reports standard deviation or competing candidates, treat those as evidence about a specific part of the measurement, not as a complete uncertainty budget for the entire physical experiment.
+
+## 2.11 Baselines and reference paths
+
+A baseline removes a known contribution only if the baseline represents the contribution that should be removed. In a physical latency measurement, a direct reference loop can characterize interface and routing delay so that the DUT measurement can be expressed relative to it. If cables, devices, sample rate or channel assignments change, the old baseline may no longer describe the current setup.
+
+The same principle applies beyond latency. A known generator level, loopback spectrum or reference device can expose measurement-system behavior before an unknown DUT is introduced.
+
+## 2.12 Physical paths, virtual paths and clock domains
+
+A path entirely inside one synchronous digital clock domain behaves differently from a path crossing independent devices. When two hardware devices run from independent clocks, their nominal sample rates are not exactly identical. Long-running routing may therefore require asynchronous sample-rate conversion or another clock-domain strategy.
+
+Virtual audio devices add routing flexibility but do not make clocking, buffering or feedback concerns disappear. Matrix Bench's virtual-device and independent-output-clock behavior is covered in its own chapter.
+
+## 2.13 A minimum pre-measurement check
+
+Before trusting an important result, confirm:
+
+1. the intended input and output devices and channels;
+2. the intended sample rate;
+3. safe, useful signal levels without unintended clipping;
+4. the intended DUT state and processing;
+5. the reference or baseline, if the method depends on one;
+6. repeatability over more than one run when practical;
+7. that the reported quantity is actually the one the experiment was designed to measure.
+
+That short check prevents more bad measurements than additional decimal places ever will.
 
 # 3. Signal Bench
 
