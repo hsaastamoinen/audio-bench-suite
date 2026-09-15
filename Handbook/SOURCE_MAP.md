@@ -30,3 +30,8 @@
 
 ## Editorial rule
 The handbook reorganizes source documentation for publication and cross-suite use. Roadmaps remain project-history material unless a validated technical fact needs to appear in the handbook.
+
+## Consistency-pass policy
+Before publication, version-specific behavior and numerical qualification claims are checked against the listed project documents rather than against earlier handbook wording. The handbook is macOS-first. Roadmap items are included only when the corresponding behavior is implemented and validated.
+
+The MIDI Bench 2.0.0 command-file reference is taken from `midi-bench/README.md`: `.mbmidi` with required `MIDI-BENCH-FILE 1.0` header, `WAIT` delays, optional final `LOOP`, and Browse/Edit/Run/Stop/Syntax controls.

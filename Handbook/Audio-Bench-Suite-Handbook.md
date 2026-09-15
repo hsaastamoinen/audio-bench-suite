@@ -1876,58 +1876,60 @@ A command file is ordinary text. It can contain MIDI commands and explicit delay
 
 The controls are:
 
-- **Browse**, select the command file;
-- **Edit**, open it in the system's normal text editor;
+- **Browse**, select a `.mbmidi` command file;
+- **Edit**, open it explicitly in macOS TextEdit;
 - **Run**, validate and execute it;
 - **Stop**, stop execution;
-- **Loop**, repeat the sequence.
+- **Syntax**, show the compact command reference.
 
 The application remembers the last command-file location.
 
-The optional `.mbmidi` extension is a convenience, not a requirement for the command language itself. Plain text remains the underlying format.
+The `.mbmidi` extension is required by the validated command-file format.
 
 <!-- FIGURE PLACEHOLDER: Figure 7.3
 Application: MIDI Bench
 Subject: Run from file controls
-Show: selected command file plus Browse, Edit, Run, Stop and Loop controls.
+Show: selected `.mbmidi` command file plus Browse, Edit, Run, Stop and Syntax controls.
 Crop: Command-file section only.
 Suggested size: approximately 70% text width
-Caption: MIDI Bench command files provide deterministic CC/PC sequences with explicit delays and optional looping.
+Caption: MIDI Bench command files provide deterministic MIDI sequences with explicit WAIT delays and an optional final LOOP command.
 -->
 
 **Figure 7.3.** Run-from-file sequencer controls.
 
 ## 7.10 Command-file syntax
 
-The supported command language is intentionally small.
-
-### Control Change
+The command-file format is UTF-8 text with the required header:
 
 ```text
-CH 1 CC 12 VAL 67
+MIDI-BENCH-FILE 1.0
 ```
 
-### Program Change
+Blank lines and `#` comments are allowed. Supported commands are:
 
 ```text
-CH 3 PC 4
+CH <1..16> CC <0..127> VAL <0..127>
+CH <1..16> PC <0..127>
+CH <1..16> NOTE <0..127> VEL <0..127> ON
+CH <1..16> NOTE <0..127> OFF
+CH <1..16> BEND <-8192..8191>
+CH <1..16> PRESSURE <0..127>
+CH <1..16> POLYAT <0..127> VAL <0..127>
+WAIT <0..3600000>
+LOOP
 ```
 
-### Delay
+`WAIT` is specified in milliseconds. `LOOP`, when used, must be the final command and restarts execution from the beginning until **Stop** is pressed.
 
-The command language provides delay tokens `BK` and `SLEEP` for inserting a wait between MIDI actions.
-
-Use explicit delays whenever the receiving hardware needs time to change state before the next command. A deterministic test sequence should not depend on how quickly a human happens to press the next button.
-
-The project README is the authoritative syntax reference for the exact accepted delay form and validation rules. Keep command files simple and validate them in MIDI Bench before relying on them for a measurement sequence.
+The whole file is validated when selected and revalidated from disk immediately before every Run.
 
 ## 7.11 Validation before execution
 
-MIDI Bench validates a command file before allowing it to run.
+MIDI Bench validates the whole command file when it is selected and reloads and revalidates it from disk immediately before every Run.
 
-An invalid edit disables Run rather than attempting to execute a partially understood sequence. After the file is corrected and becomes valid again, Run is re-enabled.
+It rejects the wrong extension, a wrong or missing header, malformed commands, out-of-range values, commands after `LOOP`, and files larger than 1 MiB. A rejected file reports `Invalid file (line N)` together with a detailed line-numbered diagnostic.
 
-This behavior is deliberate. For bench automation, refusing malformed input is safer than silently skipping an unknown line and producing a sequence different from the one the user intended.
+After a failed validation, **Run remains available while the selected file still exists**. This supports **Edit -> fix -> save -> Run** without browsing for the file again. Run never executes a partially understood file: the corrected file must pass complete revalidation before execution begins.
 
 ## 7.12 Editing command files
 
@@ -2021,11 +2023,11 @@ The selected command file is invalid or has become invalid after editing. Correc
 
 ### Edit opens an unexpected application
 
-The command file is plain text. Its editor is determined by the system's text-file association rather than by MIDI Bench implementing its own editor.
+The command file is UTF-8 text with a `.mbmidi` extension. **Edit** opens it explicitly in macOS TextEdit, so no `.mbmidi` file association is required.
 
 ### A loop changes the DUT too quickly
 
-Add explicit `BK`/`SLEEP` delay commands. Hardware can require non-zero settling time after Program Change or other state changes.
+Add explicit `WAIT` delay commands. Hardware can require non-zero settling time after Program Change or other state changes.
 
 ### Program number looks off by one
 
@@ -2042,12 +2044,12 @@ MIDI Bench 2.0.0 qualification covers:
 - Pause, Auto-scroll, Raw bytes and Clear;
 - persistence of IN/OUT device and channel;
 - deterministic test traffic;
-- command-file Browse/Run/Stop/Loop operation;
-- CC and PC command parsing;
+- command-file Browse/Edit/Run/Stop/Syntax operation;
+- CC, PC, NOTE, BEND, PRESSURE and POLYAT command parsing;
 - delay commands;
 - validation and rejection of invalid files;
-- re-enabling Run after an invalid file is corrected;
-- Edit using the system text editor;
+- Edit -> fix -> save -> Run revalidation without re-browsing;
+- Edit using macOS TextEdit;
 - remembered command-file location.
 
 The tests establish application behavior with the tested MIDI environment. They do not establish the response time, numbering convention or implementation quality of an arbitrary external MIDI device.
@@ -2335,7 +2337,7 @@ Use MIDI Bench when DUT state is controlled by MIDI.
 
 First monitor the physical controller and establish the actual channel, CC/PC number and value behavior. Then either use the verified controller directly or encode the required state changes in a command file.
 
-A command file is particularly useful when the same A/B sequence will be repeated many times. Include explicit `BK`/`SLEEP` delays when the hardware needs time to switch or settle.
+A command file is particularly useful when the same A/B sequence will be repeated many times. Include explicit `WAIT` delays when the hardware needs time to switch or settle.
 
 MIDI Bench does not synchronize the audio measurement applications automatically. Treat MIDI command time and audible DUT-state-change time as separate unless their relationship has been established.
 
@@ -2819,10 +2821,10 @@ Coverage includes:
 - deterministic test traffic;
 - command-file parsing;
 - delay commands;
-- Browse, Run, Stop and Loop;
+- Browse, Edit, Run, Stop and Syntax;
 - invalid-file rejection;
-- re-enabling Run after correction;
-- Edit through the system text editor;
+- edit/revalidation recovery;
+- Edit through macOS TextEdit;
 - remembered command-file location.
 
 Deterministic MIDI traffic establishes repeatable application behavior. Physical controllers remain necessary when the question is what a particular external device actually transmits.
@@ -3422,7 +3424,7 @@ Do not work around validation by trying to execute only the lines that "look rig
 
 ## 10.37 MIDI loop changes the DUT too quickly
 
-Add explicit `BK`/`SLEEP` delays.
+Add explicit `WAIT` delays.
 
 A MIDI message can be transmitted quickly while the hardware needs substantially longer to switch presets, relays, converters or DSP state.
 
@@ -3816,8 +3818,8 @@ Clear
 manual CC
 manual PC
 Run from file
-Browse / Edit / Run / Stop / Loop
-BK / SLEEP delay commands
+Browse / Edit / Run / Stop / Syntax
+WAIT delay commands
 persistent device/channel state
 ```
 
