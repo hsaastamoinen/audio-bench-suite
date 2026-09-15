@@ -2075,35 +2075,401 @@ When MIDI is controlling an audio measurement, record the corresponding audio Be
 
 # 8. Cross-Bench measurement workflows
 
-## 8.1 Characterizing an audio DUT
+The five Bench applications are most useful as a coordinated toolkit. A repeatable measurement normally separates four jobs: **generate a known stimulus, route it deliberately, observe the audio result, and control or document DUT state**.
 
-A general workflow is to generate a defined stimulus with Signal Bench, inspect level/frequency/distortion behavior with Spectral Bench, measure timing with Latency Bench when required, use MIDI Bench for repeatable control-state changes, and use Matrix Bench where routing or monitoring needs to be more elaborate.
+Signal Bench provides defined stimuli. Spectral Bench measures level, spectrum, distortion, frequency response and phase. Latency Bench measures physical-path timing. Matrix Bench handles routing, monitoring and repeatable audio configurations. MIDI Bench identifies and reproduces MIDI-side state changes.
 
-## 8.2 Filtered and crossover outputs
-
-Establish a bypass/reference state where possible. Then measure the filtered state. A large timing change after a steep crossover does not automatically mean the device acquired the same amount of additional transport latency: complete-response timing includes filter phase/group-delay behavior.
-
-Latency Bench can automatically use extended spectrally matched analysis when ordinary broadband analysis cannot establish reliable timing. If evidence remains insufficient or competing timing peaks are too strong, rejection is the correct outcome.
-
-## 8.3 Spectrum and distortion workflow
-
-Use a defined Signal Bench stimulus, verify headroom, then choose the matching Spectral Bench measurement mode. Preserve the exact stimulus and measurement definition with the saved result.
-
-## 8.4 MIDI-controlled repeatability
-
-When comparing DUT states controlled over MIDI, use MIDI Bench to make the state transition deterministic. Save the command sequence and settling delay with the measurement notes.
-
+No workflow requires every application. Use the smallest combination that answers the engineering question.
 
 <!-- FIGURE PLACEHOLDER: Figure 8.1
 Application: Audio Bench Suite
-Subject: Example multi-Bench workflow
-Show: A manually prepared screenshot collage or routing diagram showing generator, DUT, analyzer/latency path and optional MIDI control.
+Subject: General cross-Bench DUT workflow
+Show: A manually prepared routing diagram with Signal Bench as stimulus source, optional Matrix Bench routing, physical DUT, Spectral Bench and/or Latency Bench measurement path, plus optional MIDI Bench control.
+Crop: Diagram only.
 Suggested size: full text width
-Caption: Example of a repeatable multi-Bench DUT measurement workflow.
+Caption: General Audio Bench Suite workflow separating stimulus, routing, DUT, measurement and optional MIDI control.
 -->
 
-**Figure 8.1.** Example of a repeatable multi-Bench DUT measurement workflow.
+**Figure 8.1.** General cross-Bench DUT measurement workflow.
 
+## 8.1 Start with the question
+
+Before connecting software or cables, define the quantity being measured.
+
+Examples:
+
+- frequency response relative to a reference;
+- harmonic distortion at a specified tone and level;
+- selective intermodulation products;
+- physical-path latency;
+- timing of a filtered subwoofer output;
+- difference between two DUT states;
+- MIDI message behavior;
+- latency added by an effects loop;
+- routing behavior through a virtual or physical path.
+
+This determines which Bench owns the authoritative result. A Spectral Bench phase trace is not a substitute for a Latency Bench physical-path latency measurement, and a Latency Bench complete-response timing result is not a THD or frequency-response measurement.
+
+## 8.2 Establish the common test conditions
+
+Record the conditions that can change the result before comparing measurements:
+
+```text
+sample rate
+audio interface and channels
+buffer size where relevant
+stimulus type and level
+DUT input/output levels
+DUT state
+physical cabling
+reference path
+Matrix routing/processing state
+MIDI program/control state
+```
+
+Use conservative levels first. Clipping in the generator, interface, DUT or return path invalidates many otherwise sophisticated measurements.
+
+When comparing A and B, change only the variable that is meant to differ.
+
+## 8.3 Signal Bench + Spectral Bench: level and spectrum
+
+For a basic spectral test:
+
+1. select a defined Signal Bench stimulus;
+2. set a conservative Output Level;
+3. route it through the DUT;
+4. select the DUT return in Spectral Bench;
+5. begin with Input Gain at 0 dB;
+6. choose the spectrum viewport and averaging needed for readable inspection;
+7. save the result when the setup is stable.
+
+Use Pink or White noise for broadband inspection. Noise Smooth may improve the visual readability of broadband noise, but it does not change Spectral Bench's authoritative numeric measurement data.
+
+For a discrete tone, use a matching defined measurement mode where possible.
+
+## 8.4 Signal Bench + Spectral Bench: single-tone distortion
+
+Signal Bench and Spectral Bench share defined 100 Hz, 1 kHz and 10 kHz measurement cases.
+
+A repeatable distortion workflow is:
+
+1. select the matching Signal Bench tone preset;
+2. set the desired generator Output Level;
+3. verify DUT and return-path headroom;
+4. select the corresponding Spectral Bench measurement mode;
+5. confirm that the fundamental is valid;
+6. inspect H2-H10 and THD;
+7. inspect THD+N and record its measurement bandwidth;
+8. save PNG, CSV and TXT result companions.
+
+Do not compare THD+N values without preserving the bandwidth definition. Do not infer analog voltage from dBFS without the interface/DUT calibration required to establish that relationship.
+
+## 8.5 Signal Bench + Spectral Bench: intermodulation
+
+For the suite's defined two-tone tests, use matching generator and analyzer modes.
+
+### CCIF / DFD-style
+
+Signal Bench generates equal-amplitude 19 kHz + 20 kHz tones. Spectral Bench inspects the defined 1 kHz, 18 kHz and, where valid below Nyquist, 21 kHz products.
+
+### SMPTE-style
+
+Signal Bench generates 60 Hz + 7 kHz with a 4:1 low/high amplitude ratio. Spectral Bench inspects the defined second- and third-order sideband pairs.
+
+The suite intentionally reports these as selective **CCIF / DFD-style** and **SMPTE-style** measurements. Do not turn the reported products into a claimed normative aggregate percentage unless that separate standard-defined calculation has actually been performed.
+
+## 8.6 Referenced DUT frequency response
+
+A referenced Spectral Bench sweep is preferred when the goal is the DUT's transfer response rather than the absolute response of the complete capture chain.
+
+Conceptually:
+
+```text
+generator ----+----> reference path ----> Reference IN
+              |
+              +----> DUT ---------------> DUT IN
+```
+
+First run a direct dual-channel loopback. This qualifies the channel pair and reveals residual interface/channel mismatch.
+
+Then insert the DUT only in the DUT path and run **Transfer**. The result represents the DUT path relative to the simultaneously measured reference.
+
+Use **Actual** instead when the captured DUT response itself is the intended quantity.
+
+Do not call an unreferenced Actual trace a transfer function with the interface response removed.
+
+## 8.7 Phase comparison
+
+Choose the phase reference according to the question.
+
+**Raw** retains transport delay and all measured phase.
+
+**Auto** removes a response-dependent estimated constant-delay component. It is useful for viewing residual phase but is not an independent latency measurement.
+
+**Manual** removes a known delay entered by the user. This is the appropriate cross-Bench mode when Latency Bench has independently established the physical transport delay and Spectral Bench is being used to inspect phase after that delay is removed.
+
+**Baseline** is useful for A/B work. Store state A as the phase baseline, change only the DUT state, then measure state B. Common path delay is removed and the phase change between the two states remains.
+
+## 8.8 Spectral Bench + Latency Bench: separate phase from physical latency
+
+This is one of the most important cross-Bench distinctions.
+
+A transfer-function phase measurement cannot always distinguish pure transport delay from an equivalent linear phase term belonging to the DUT response. Latency Bench attacks a different problem by measuring the relative arrival of a deterministic physical-path probe.
+
+A useful workflow is:
+
+1. use Latency Bench to measure the physical-path latency in an appropriate broadband/reference DUT state;
+2. record the result in samples and milliseconds;
+3. perform the Spectral Bench referenced sweep;
+4. select Manual phase;
+5. enter the independently measured delay;
+6. interpret the remaining phase as the response after that chosen constant-delay component has been removed.
+
+During qualification, a physical path measured by Latency Bench at `89.15 samples / 1.857 ms` at 48 kHz behaved as expected when that independently measured delay was entered in Spectral Bench Manual phase.
+
+Auto phase compensation need not equal the Latency Bench value, and a difference between them is not by itself an error.
+
+## 8.9 Filter and crossover characterization
+
+A filter changes both magnitude and phase. Its complete-response timing can therefore differ substantially from the device's broadband transport timing.
+
+A useful characterization sequence is:
+
+1. measure a broadband/bypass physical latency with Latency Bench where possible;
+2. run a referenced Spectral Bench sweep with the filter bypassed;
+3. enable the filter without changing the rest of the path;
+4. run a second sweep;
+5. use Baseline phase for a direct Off/On phase comparison;
+6. measure the filtered physical path with Latency Bench if arrival timing matters;
+7. report the filtered timing as complete-response timing unless the measurement specifically isolates transport.
+
+For a steep low-pass or subwoofer output, a several-millisecond increase can be physically reasonable because filter group delay contributes to the measured arrival.
+
+## 8.10 Strongly bandwidth-limited and subwoofer outputs
+
+Do not widen a legitimate subwoofer/crossover output merely to satisfy an assumed latency-test bandwidth rule.
+
+Latency Bench 1.1.1 automatically moves to extended analysis when normal broadband analysis has weak or competing timing evidence. Extended analysis uses a longer probe and magnitude-matches the reference spectrum to the captured DUT magnitude while leaving DUT phase intact.
+
+Qualification accepted 20-160 Hz paths with both 24 dB/oct and 48 dB/oct filtering. If the evidence remains ambiguous, rejection is the correct result.
+
+For the same DUT, Spectral Bench can characterize the transfer magnitude and phase while Latency Bench answers the physical arrival-time question.
+
+## 8.11 Effects-loop latency
+
+An analog effects loop inside an otherwise digital device can add measurable latency even when no external effect is connected.
+
+A clean comparison is:
+
+1. establish the Latency Bench baseline;
+2. measure the DUT in a state that bypasses the loop path;
+3. enable or route through one loop and measure again;
+4. repeat for additional loops or routing states;
+5. compare medians while keeping the interface, sample rate, cabling and DUT processing otherwise unchanged.
+
+If the loop path contains D/A and A/D conversion, most of its latency can remain present whether an external effect is active or bypassed. Distinguish **routing through the loop path** from **enabling processing inside an external effect**.
+
+Use Spectral Bench as a companion if the loop also changes frequency response, level, phase or distortion.
+
+## 8.12 DSP-block latency
+
+To investigate whether a DSP block changes latency:
+
+1. choose a DUT state with the block absent or bypassed;
+2. measure physical-path latency;
+3. enable the block without changing unrelated routing;
+4. repeat the measurement;
+5. compare the run statistics, not just one displayed number.
+
+Some devices retain the same processing topology when a block is bypassed, so the block's apparent latency may not disappear when its audible processing is switched off. The measurement should describe the tested states rather than assuming what "bypass" means internally.
+
+For filters and other phase-shifting blocks, separate transport changes from complete-response timing changes.
+
+## 8.13 Matrix Bench as the routing layer
+
+Matrix Bench becomes useful when a test requires more routing than one generator-to-DUT-to-analyzer path.
+
+Examples include:
+
+- feeding Main monitors while Aux carries a measurement path;
+- sending one source to multiple destinations;
+- feeding another macOS application through the virtual 8×8 device;
+- recalling complete test routing with a snapshot;
+- maintaining a headless route while measurement applications are opened and closed.
+
+Keep measurement-path processing explicit. Disable Matrix input filters or Main/Aux compression when they are not part of the DUT being measured.
+
+Record crosspoint gains, destination gains, mutes and any active processing with the measurement.
+
+## 8.14 Matrix Bench virtual routing
+
+The Matrix virtual device can replace physical loopback wiring for inter-application routing, but it changes the path being measured.
+
+A virtual path can include:
+
+```text
+source application
+-> Core Audio client buffering
+-> Matrix HAL device
+-> MatrixBenchEngine
+-> destination application or physical output
+```
+
+Do not assume that its latency equals a direct physical interface path or that selecting a 16-sample buffer makes the complete path 16 samples long.
+
+When latency matters, measure the actual topology. When only signal routing matters, verify channels and guard against virtual feedback.
+
+## 8.15 Matrix snapshots for repeatable A/B routing
+
+Snapshots are useful when A/B comparison requires coordinated routing changes.
+
+Build state A completely, save it to one snapshot, then build and save state B. Give both snapshots descriptive names. Recall them while observing the DUT or analyzer.
+
+Snapshot recall is coordinated so intermediate routing states are minimized. Even so, allow the DUT and measurement analyzer to settle before treating the next measurement as valid.
+
+If the A/B question can be answered by changing only one DUT parameter, prefer changing only that parameter. Snapshots are most valuable when the complete routing state genuinely needs to change.
+
+## 8.16 MIDI Bench for deterministic DUT states
+
+Use MIDI Bench when DUT state is controlled by MIDI.
+
+First monitor the physical controller and establish the actual channel, CC/PC number and value behavior. Then either use the verified controller directly or encode the required state changes in a command file.
+
+A command file is particularly useful when the same A/B sequence will be repeated many times. Include explicit `BK`/`SLEEP` delays when the hardware needs time to switch or settle.
+
+MIDI Bench does not synchronize the audio measurement applications automatically. Treat MIDI command time and audible DUT-state-change time as separate unless their relationship has been established.
+
+## 8.17 MIDI-controlled Spectral Bench comparison
+
+For a MIDI-controlled filter, preset or processing state:
+
+1. verify the MIDI command in MIDI Bench;
+2. set state A;
+3. wait for the DUT to settle;
+4. save the Spectral Bench result or phase baseline;
+5. send the state-B command;
+6. wait the same defined settling interval;
+7. measure state B;
+8. save the MIDI command file with the audio results.
+
+This gives the measurement an explicit control-state record rather than relying on a remembered footswitch sequence.
+
+## 8.18 MIDI-controlled latency comparison
+
+The same principle applies to Latency Bench, but each DUT measurement already consists of repeated automatic runs.
+
+Set the DUT state first, allow it to settle, then start the ten-run latency measurement. Do not switch DUT state during those runs.
+
+For state B, perform the complete state change before starting the next measurement. Compare the resulting medians and spread.
+
+If a state change also alters bandwidth or phase strongly, expect complete-response timing and estimator evidence to change as well.
+
+## 8.19 Sample-rate and clock-domain discipline
+
+Keep the complete path in one sample-rate/clock domain when the experiment permits it.
+
+A fixed-48 kHz DUT, a 44.1 kHz Bluetooth destination and a variable-rate professional interface are not interchangeable measurement paths. Matrix Bench can bridge independent output clocks, but sample-rate conversion and asynchronous buffering then become part of the real topology.
+
+Record the actual sample rate used by the measurement application and the relevant DUT/interface constraints.
+
+When comparing latency in samples, remember that the duration of one sample changes with sample rate. For cross-rate comparisons, milliseconds are usually the clearer physical quantity.
+
+## 8.20 Buffer-size experiments
+
+When studying buffer size, change the buffer and nothing else.
+
+A useful sequence is:
+
+```text
+16 / 32 / 64 / 128 / 256 / 512 samples
+```
+
+At each size, verify that the device/client actually accepted and is using the requested buffer. Then measure the real path.
+
+Do not derive end-to-end latency by multiplying one selected buffer by sample time. Driver safety buffers, converters, engine buffering, DSP and other components can contribute independently.
+
+Matrix Bench's persistent-client physical qualification follows this principle: the same client requests the size, starts I/O, verifies callback behavior and measures the physical loopback before being destroyed.
+
+## 8.21 Bluetooth and wireless monitoring
+
+Bluetooth is useful for listening but poor as a reference path for low-latency qualification.
+
+Its buffering can dominate the total delay, and the tested JBL path also operates at a fixed 44.1 kHz. If a measurement is intended to characterize a DUT rather than Bluetooth itself, keep the wireless path out of the measurement loop.
+
+If Bluetooth is the system under test, measure the complete Bluetooth path and describe it as such.
+
+## 8.22 Repeating a difficult measurement
+
+After an unusual or difficult DUT measurement, return to a known reference.
+
+For example:
+
+1. measure direct/bypass;
+2. measure the difficult filtered or routed state;
+3. restore direct/bypass;
+4. measure it again.
+
+If the final reference no longer matches the first, investigate routing, sample rate, device state, cabling or baseline validity before trusting the middle result.
+
+This simple "reference, DUT, reference" pattern is one of the strongest defenses against an unnoticed setup change.
+
+## 8.23 Saving a complete measurement set
+
+Keep the machine-readable result together with the human-readable setup record.
+
+For a spectral test, retain the PNG, CSV and TXT companions. For latency work, record the run statistics and evidence together with the baseline and path definition. For MIDI-controlled tests, retain the command file. For Matrix-routed tests, record or snapshot the routing state.
+
+A useful directory layout is:
+
+```text
+measurement-name/
+  README.txt
+  spectral-result.png
+  spectral-result.csv
+  spectral-result.txt
+  midi-state.mbmidi
+  routing-notes.txt
+  latency-notes.txt
+```
+
+Not every test produces every file. The point is to keep the evidence and the setup definition together.
+
+## 8.24 Minimum publication record
+
+A published or shared result should make the following recoverable:
+
+```text
+question being measured
+Bench application(s) and versions
+audio device/interface
+sample rate
+buffer size if relevant
+physical and/or virtual routing
+stimulus and level
+DUT identity and state
+reference/baseline method
+measurement mode and bandwidth
+result and repeatability/statistics
+MIDI state/sequence where relevant
+anything intentionally bypassed or compensated
+```
+
+This is more valuable than adding decimal places to a result whose path definition is unknown.
+
+## 8.25 Choosing the authoritative Bench
+
+When several Bench applications are involved, keep one owner for each quantity:
+
+| Quantity | Authoritative tool |
+| --- | --- |
+| Generated stimulus definition | Signal Bench |
+| Spectrum / level / harmonics / THD / THD+N / IM products | Spectral Bench |
+| Referenced magnitude and phase response | Spectral Bench |
+| Physical-path latency / complete-response timing | Latency Bench |
+| Audio routing and processing state | Matrix Bench |
+| MIDI message and command sequence | MIDI Bench |
+
+Cross-checking between tools is valuable, but do not silently redefine a quantity because another tool displays something that looks numerically similar.
 
 # 9. Validation and qualification philosophy
 
