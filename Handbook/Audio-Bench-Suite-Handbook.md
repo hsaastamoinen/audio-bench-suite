@@ -1,6 +1,6 @@
 # 60°N Signal Works Audio Bench Suite Handbook
 
-**macOS edition — canonical Markdown source**
+**macOS edition, canonical Markdown source**
 
 **Status:** Working publication source  
 **Applications:** Matrix Bench, MIDI Bench, Signal Bench, Spectral Bench, Latency Bench  
@@ -48,7 +48,7 @@ The suite currently consists of:
 - **Matrix Bench**, low-latency physical and virtual audio routing, mixing, monitoring and utility processing.
 - **MIDI Bench**, MIDI monitoring, transmission and deterministic command-file sequencing.
 
-The handbook's primary target is the latest qualified macOS release of each application. Historical versions and other operating systems are discussed only when they explain compatibility, measurement behavior or a relevant implementation detail.
+The handbook documents the latest qualified macOS release of each application. Historical versions and other operating systems are discussed only when they explain compatibility, measurement behavior or a relevant implementation detail.
 
 ## 1.2 Installation model
 
@@ -3536,13 +3536,13 @@ This appendix collects definitions, compact reference material and publication r
 
 ### Samples and time
 
-At sample rate \(F_s\), one sample represents:
+At sample rate F_s, one sample represents:
 
 ```text
 sample time = 1 / Fs seconds
 ```
 
-and a delay of \(N\) samples represents:
+and a delay of N samples represents:
 
 ```text
 delay_ms = 1000 * N / Fs

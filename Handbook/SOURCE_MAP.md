@@ -47,3 +47,6 @@ Checked against `spectral-bench/README.md`, `spectral-bench/docs/MEASUREMENT_GUI
 
 ### Latency Bench 1.1.1 consistency check
 Checked against `latency-bench/README.md`, `latency-bench/docs/MEASUREMENT_GUIDE.md`, `latency-bench/docs/MEASUREMENT_METHOD.md`, and `latency-bench/docs/REFERENCE_MEASUREMENTS.md`. The handbook already reflects the qualified 1.1.1 estimator and measurement semantics: deterministic bipolar broadband probe, baseline subtraction, normalized correlation with fractional-sample refinement, overlap-weighted evidence, 0.10 primary-evidence threshold, 90% competing-candidate ambiguity rejection, automatic extended analysis with magnitude-matched reference spectrum, ten-run median reporting, and the distinction between complete filtered-response timing and bare transport latency.
+
+### Global publication consistency check
+Completed after the five application-specific source reconciliations. The canonical Markdown is macOS-first, uses plain Markdown rather than LaTeX inline delimiters, avoids em-dash typography in publication prose, retains application-specific validation terminology, and preserves the chapter-numbered figure-placeholder scheme for the separate screenshot/figure production list. Version-sensitive technical claims remain governed by the application consistency checks above.
