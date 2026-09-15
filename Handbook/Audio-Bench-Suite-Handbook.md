@@ -2473,25 +2473,482 @@ Cross-checking between tools is valuable, but do not silently redefine a quantit
 
 # 9. Validation and qualification philosophy
 
-## 9.1 Synthetic tests versus physical qualification
+The Audio Bench Suite treats validation as part of the measurement system, not as a final cosmetic check before release. A tool that produces plausible numbers is not necessarily a trustworthy measurement tool. The implementation must also behave correctly for known cases, remain stable across relevant operating conditions, reject cases that do not support a defensible answer, and survive contact with real hardware.
 
-Automated tests are useful for known mathematical cases, regressions and boundary behavior. Physical tests are required where operating-system audio stacks, interfaces, independent clocks, analog paths or real DUT transfer functions can expose behavior that a synthetic model does not reproduce. The strongest qualification combines both.
+The suite therefore uses several kinds of evidence together:
 
-## 9.2 Reference paths and loopbacks
+```text
+known-answer / synthetic tests
++ implementation and regression tests
++ physical reference paths
++ representative real DUTs
++ repetition and statistics
++ deliberately difficult or ambiguous cases
++ installed-artifact qualification
+```
 
-A known-good cable or loopback establishes a reference state. Repeating it after a difficult test helps detect accidental routing or configuration changes.
+No one layer replaces the others.
 
-## 9.3 Repetition and statistics
+## 9.1 Validation, qualification and measurement confidence
 
-Repeatability is evidence, but repeatability alone does not prove correctness. Combine repeated-run statistics with a known reference, an independent method, a predictable parameter change or a synthetic case with a known answer.
+These terms are related but not identical.
 
-## 9.4 Validation coverage in the suite
+**Validation** asks whether a particular function behaves according to its documented definition under tested conditions.
 
-Matrix Bench documents virtual-HAL persistent-I/O, physical round-trip and application-path latency validation. Spectral Bench documents amplitude, FFT/window, THD/THD+N, IMD, sweep/phase and export validation. Latency Bench documents broadband, bandwidth-limited, ambiguity and LF/subwoofer qualification. Signal Bench documents pink-noise and platform validation. MIDI Bench documents deterministic MIDI IN/OUT behavior and command-file operation.
+**Qualification** is broader. It asks whether the released application, its packaging and the relevant real-world signal path have demonstrated the behavior required for practical use.
 
-## 9.5 Limits of validation
+**Measurement confidence** belongs to an individual result. A fully qualified application can still receive a clipped signal, a wrong channel, an ambiguous DUT response or a stale baseline. Application qualification cannot make an invalid setup valid.
 
-A passed validation set establishes behavior within the tested conditions. It does not imply that every third-party driver, interface, operating-system version, sample rate, DUT transfer function or routing topology has been tested.
+The suite therefore separates confidence in the **instrument** from confidence in the **measurement performed with it**.
+
+## 9.2 Synthetic and known-answer tests
+
+Synthetic tests are strongest when the expected result is known independently.
+
+Examples include:
+
+- a mathematically defined sine amplitude;
+- a known harmonic relationship;
+- a known FFT/window calibration case;
+- deterministic Pink or White noise statistics;
+- an imposed sample delay;
+- a controlled polarity inversion;
+- a known filter response;
+- a deliberately constructed competing-correlation case;
+- a deterministic MIDI message stream.
+
+These tests are fast, repeatable and suitable for regression testing. They can exercise edge conditions that would be awkward to reproduce physically.
+
+Their limitation is equally important: they do not include the complete operating-system, driver, converter, clock, cable and DUT path.
+
+## 9.3 Physical qualification
+
+Physical tests include the parts that a synthetic model omits.
+
+A physical loopback can expose:
+
+- real driver buffering;
+- actual callback behavior;
+- D/A and A/D conversion;
+- channel mismatch;
+- independent clock behavior;
+- sample-rate constraints;
+- analog gain and noise;
+- real filter phase;
+- external-device routing;
+- hot-plug and device recovery behavior.
+
+For this reason, the suite does not treat a successful mathematical unit test as proof of complete physical-system behavior.
+
+The strongest cases use both: a known-answer test to validate the algorithm and a physical test to validate the implemented path.
+
+## 9.4 Reference paths
+
+A reference path establishes a known state against which a more complicated measurement can be interpreted.
+
+Examples include:
+
+- direct cable loopback before inserting a DUT;
+- dual-channel direct loopback before a referenced Spectral Bench sweep;
+- Latency Bench's stored direct-loop baseline;
+- Spectral Bench Baseline phase state;
+- a Matrix Bench route with processing bypassed;
+- a known MIDI command sent before testing a physical controller.
+
+A reference is useful only while the conditions that define it remain valid. Changing interface, sample rate, channels, physical wiring or other relevant setup can invalidate the reference.
+
+## 9.5 Reference -> DUT -> reference
+
+For difficult measurements, use the sequence:
+
+```text
+known reference
+-> DUT / unusual condition
+-> known reference again
+```
+
+If the final reference does not reproduce the initial one, investigate the setup before accepting the DUT result.
+
+This catches errors such as:
+
+- a changed channel;
+- a stale baseline;
+- an unintended mute or gain;
+- a sample-rate change;
+- a device reconnecting differently;
+- a DUT not returning to the expected state;
+- an accidental Matrix route;
+- a physical cable problem.
+
+The second reference is cheap insurance against a convincing but invalid middle result.
+
+## 9.6 Repeatability is not accuracy
+
+Repeated results are important, but repeatability alone does not prove correctness.
+
+A systematically wrong setup can produce the same wrong number ten times.
+
+Repeatability becomes stronger evidence when combined with one or more of:
+
+- a known reference;
+- an independently calculated value;
+- a second measurement method;
+- a predictable parameter change;
+- a known physical loopback;
+- a synthetic case with a known answer.
+
+Latency Bench reports median, mean, minimum, maximum and standard deviation because run spread matters. Spectral Bench includes defined measurement/statistical behavior for applicable modes. These statistics describe stability, not universal absolute accuracy.
+
+## 9.7 Regression testing
+
+Once a failure has been understood and fixed, the important case should become a regression test whenever practical.
+
+This is particularly important for failures that originally looked plausible. Examples in suite development include:
+
+- HAL buffer/callback behavior;
+- ambiguous correlation peaks;
+- short-overlap edge candidates;
+- strongly bandwidth-limited latency paths;
+- saved-result terminology;
+- phase-reference behavior;
+- command-file invalid-to-valid transitions;
+- persistence and snapshot restoration.
+
+A regression suite is not merely a count of tests. Its value is that previously discovered failure modes remain represented.
+
+## 9.8 Acceptance and rejection
+
+A measurement tool must sometimes reject a result.
+
+Latency Bench is the clearest example. A primary timing candidate must have adequate evidence, and a sufficiently strong separate competitor causes the run to be rejected. The application does not choose the convenient peak merely because a number is expected.
+
+The same principle applies elsewhere:
+
+- Spectral Bench should not report an arbitrary weak spectral maximum as a valid defined tone;
+- MIDI Bench should not run a malformed command file;
+- Matrix Bench should reject an unsafe virtual routing configuration;
+- a clipped spectral measurement should be treated as invalid even if the UI still displays numbers.
+
+**Refusal to produce a result can be correct instrument behavior.**
+
+## 9.9 Signal Bench validation
+
+Signal Bench validation begins with the generator itself because every downstream measurement depends on the stimulus being what it claims to be.
+
+### Pink noise
+
+The Pink generator uses the documented Stefan Stenzel extended 20-source method. Deterministic validation used a `16,777,216`-sample run.
+
+The reference run produced:
+
+```text
+RMS:  0.195411
+RMS: -14.18 dBFS
+peak: 0.916451
+```
+
+The four-rate spectral validation was:
+
+| Sample rate | RMS spectral error | Maximum error |
+| --- | ---: | ---: |
+| 44.1 kHz | 0.066 dB | 0.212 dB |
+| 48 kHz | 0.070 dB | 0.284 dB |
+| 96 kHz | 0.085 dB | 0.295 dB |
+| 192 kHz | 0.118 dB | 0.350 dB |
+
+Regression limits include RMS between `0.185` and `0.205`, peak below full scale, RMS spectral error no greater than `0.15 dB`, and maximum-bin error no greater than `0.40 dB`.
+
+A finite-record mean of approximately `+0.0499` is not treated as a DC-failure criterion because the algorithm contains very slow sources whose finite observation does not necessarily converge to zero mean over that record.
+
+### Other generator behavior
+
+Qualification also covers deterministic independent noise states, oscillator behavior, presets, filtering, output/mute behavior and the final macOS formats.
+
+The qualified macOS 2.0.0 release passed native build, installer and clean-install validation, including Standalone, Audio Unit and VST3 operation.
+
+## 9.10 Spectral Bench validation
+
+Spectral Bench requires both mathematical calibration and physical measurement validation.
+
+The released macOS 2.1.0 build passes the full **20-test automated suite**.
+
+Coverage includes:
+
+- FFT and supported-window calibration;
+- coherent-gain behavior;
+- level and tone measurements;
+- harmonic analysis;
+- THD and THD+N;
+- selective IM products;
+- averaging and peak behavior;
+- saved-result semantics;
+- referenced sweep magnitude;
+- Raw, Auto, Manual and Baseline phase behavior;
+- viewport and Input Gain semantics.
+
+Physical qualification used direct dual-channel loopback and a Neural DSP Quad Cortex DUT.
+
+Repeated direct-loopback sweeps showed approximately `0.000023 dB` worst-case magnitude variation over 30 Hz to 18 kHz. Known 1 kHz 12 dB/oct and 24 dB/oct low-pass responses behaved as expected. Level-dependence checks at `-6`, `-12`, `-24` and `-48 dBFS` passed.
+
+Physical sweep checks covered 44.1, 48 and 96 kHz and representative 16, 64 and 512 sample buffers.
+
+## 9.11 Spectral phase qualification
+
+Phase required special qualification because a plausible-looking phase trace can still have the wrong reference convention.
+
+Tests covered:
+
+- Raw phase retaining transport delay;
+- Auto response-dependent delay compensation;
+- Manual compensation using independently known delay;
+- Baseline A/B behavior;
+- Off-versus-Off null behavior;
+- filter Off-versus-On phase behavior.
+
+In a physical qualification path, Latency Bench measured `89.15 samples / 1.857 ms` at 48 kHz. Applying that independently measured value as Spectral Bench Manual compensation produced the expected essentially flat LPF-off response through the useful band.
+
+Auto estimated approximately `1.42 ms` for that tested response. The difference was retained and documented because Auto is a response-dependent phase-reference choice, not a replacement physical-latency estimator.
+
+Swapping direct-loopback channels produced equal-and-opposite small high-frequency phase slope, supporting the interpretation that the residual was physical channel/path mismatch rather than an estimator artifact.
+
+## 9.12 Latency Bench validation
+
+Latency Bench 1.1.1 combines estimator regression tests with physical-path qualification.
+
+Coverage includes:
+
+- deterministic broadband probe behavior;
+- normalized cross-correlation;
+- signed lag search;
+- polarity-insensitive timing selection;
+- fractional-sample parabolic interpolation;
+- overlap-weighted selection evidence;
+- minimum evidence threshold;
+- 90% competing-candidate rejection;
+- normal analysis;
+- automatic extended analysis;
+- magnitude-matched reference spectrum in extended analysis;
+- broadband and strongly filtered DUT paths;
+- deliberately ambiguous cases.
+
+A physical bypass/cable reference at 48 kHz measured:
+
+```text
+89.15 samples
+1.857 ms
+standard deviation: 0.000 ms
+normal analysis: 10/10 runs
+```
+
+## 9.13 Latency Bench difficult-path qualification
+
+The difficult cases are especially important because they test whether the estimator fails safely.
+
+Accepted examples include:
+
+| DUT condition | Result |
+| --- | ---: |
+| 300-3400 Hz, 24 dB/oct | 95.17 samples / 1.983 ms |
+| 1 kHz HPF, 48 dB/oct | 133.60 / 2.783 ms |
+| 2 kHz HPF, 48 dB/oct | 90.91 / 1.894 ms |
+| 2-4 kHz, 48+48 dB/oct | 114.05 / 2.376 ms |
+| 20-160 Hz, 24 dB/oct | 383.20 / 7.983 ms |
+| 20-160 Hz, 48+48 dB/oct | 493.18 / 10.275 ms |
+
+The two 20-160 Hz cases used extended analysis for all ten runs and remained highly repeatable.
+
+Deliberately ambiguous cases were rejected when a separate candidate exceeded the documented 90% evidence ratio. A 2-3 kHz case reached about 91.6%, and a 100-500 Hz case about 92.4%.
+
+These rejected cases are part of qualification evidence, not failed qualification.
+
+## 9.14 Matrix Bench validation layers
+
+Matrix Bench spans more system layers than the other applications, so its qualification is intentionally divided.
+
+### Engine and application
+
+Tests and manual qualification cover GUI-to-engine state, persistence, routing, Main/Aux behavior, input processing, snapshots, MIDI control, compressors and hot-plug recovery.
+
+Audio must continue when the GUI is closed because `MatrixBenchEngine` is the persistent runtime.
+
+### Virtual HAL device
+
+The virtual 8×8 Core Audio device has dedicated callback and client-behavior tests. Qualification includes multichannel operation, stereo-pair use and OS-side channel mapping.
+
+### Physical latency
+
+Physical loopback testing is separate from HAL unit/callback testing. The persistent-client procedure requests a buffer size, starts the IOProc, verifies actual callback behavior, measures the physical loopback and then destroys the client.
+
+The qualified buffer set is:
+
+```text
+16 / 32 / 64 / 128 / 256 / 512
+```
+
+The physical qualification path used the RME Babyface Pro at 48 kHz.
+
+This separation prevents a successful property/API call from being mistaken for proof of real end-to-end timing.
+
+## 9.15 Matrix device coverage
+
+Representative Matrix Bench qualification has included:
+
+- RME Babyface Pro;
+- Neural DSP Quad Cortex;
+- JBL Tune 530BT;
+- Mac internal audio;
+- Matrix Bench virtual 8×8 device.
+
+The devices exercise different constraints: professional flexible-rate hardware, a fixed-48 kHz modeler, fixed-44.1 kHz Bluetooth audio, built-in Core Audio and the suite's own virtual HAL path.
+
+This is representative coverage, not an exhaustive compatibility list.
+
+## 9.16 MIDI Bench validation
+
+MIDI Bench 2.0.0 qualification covers both observed and generated MIDI traffic.
+
+Coverage includes:
+
+- MIDI IN device/channel selection;
+- timestamped incoming messages;
+- raw-byte display;
+- MIDI OUT selection;
+- manual CC and PC sending;
+- timestamped outgoing messages;
+- persistence;
+- deterministic test traffic;
+- command-file parsing;
+- delay commands;
+- Browse, Run, Stop and Loop;
+- invalid-file rejection;
+- re-enabling Run after correction;
+- Edit through the system text editor;
+- remembered command-file location.
+
+Deterministic MIDI traffic establishes repeatable application behavior. Physical controllers remain necessary when the question is what a particular external device actually transmits.
+
+## 9.17 Sample-rate coverage
+
+Sample rate is part of the measurement condition, not a cosmetic setting.
+
+Suite qualification deliberately includes different rates where they matter. Spectral physical sweep checks include 44.1, 48 and 96 kHz, while Signal pink-noise spectral validation extends through 192 kHz.
+
+Real devices can impose their own constraints. The tested Neural DSP Quad Cortex operates at 48 kHz and the tested JBL Bluetooth path at 44.1 kHz.
+
+A result validated at one rate should not be silently generalized to another when the algorithm, Nyquist limit, device path or buffering can change.
+
+## 9.18 Buffer-size coverage
+
+Buffer size is tested where it can affect actual runtime behavior.
+
+Matrix Bench physical/HAL qualification covers 16 through 512 samples in powers of two. Spectral physical sweep checks include representative 16, 64 and 512 sample cases.
+
+The purpose is not to prove that every measurement changes with buffer size. It is to prove that relevant behavior remains valid while the runtime is exercised at materially different buffer conditions.
+
+Buffer size still must not be equated directly with complete physical latency.
+
+## 9.19 Installed-artifact qualification
+
+A development build passing tests is not the final product.
+
+Where applicable, qualification also checks the installed artifacts:
+
+- application launches from the intended install location;
+- expected plug-in formats are installed;
+- Audio Unit validation passes where applicable;
+- VST3 metadata is correct where applicable;
+- background service components start correctly;
+- virtual-device components are available;
+- a clean install reproduces the intended behavior.
+
+Signal Bench and Spectral Bench macOS release qualification explicitly includes clean-install/plugin checks. Matrix Bench additionally requires its engine/HAL integration to survive installation as a system-level audio tool.
+
+## 9.20 What validation proves
+
+A passed validation set supports statements of the form:
+
+> Under the documented test conditions, this implementation produced the expected behavior for these defined cases.
+
+It can establish:
+
+- algorithm correctness for known-answer cases;
+- absence of specific tested regressions;
+- repeatability under the tested conditions;
+- successful operation with representative real hardware;
+- correct rejection of defined invalid/ambiguous cases;
+- correct installed-artifact behavior where tested.
+
+This is substantial evidence, but it has boundaries.
+
+## 9.21 What validation does not prove
+
+Qualification does **not** prove:
+
+- compatibility with every Core Audio or MIDI device;
+- identical behavior on every macOS release;
+- identical latency from every driver;
+- accuracy after an unrecorded routing or sample-rate change;
+- validity of a clipped measurement;
+- validity of a stale baseline;
+- correctness of an arbitrary third-party DUT;
+- that a highly repeatable result is free of systematic error;
+- that one tested sample rate proves all sample rates;
+- that one tested buffer size proves all buffering topologies;
+- that an estimator must return a number for every possible transfer function.
+
+The scope of a claim should not exceed the scope of its evidence.
+
+## 9.22 Validation matrix
+
+The following table summarizes the principal qualification layers.
+
+| Bench | Synthetic / deterministic | Physical / system | Difficult or negative cases | Installed artifact |
+| --- | --- | --- | --- | --- |
+| Signal | deterministic noise/oscillator and spectral regression | output behavior and platform validation | level/headroom and generator-state cases | macOS Standalone, AU, VST3 clean install |
+| Spectral | FFT/window, level, tone, harmonic, THD/THD+N, IM, sweep/phase tests | loopback + real DUT sweeps | phase-reference distinctions, level/rate/buffer variation | Standalone, AU/auval, VST3, package smoke test |
+| Latency | deterministic delay/correlation estimator tests | physical dual-path loopback and DUT | narrow-band, LF/subwoofer, competing candidates, polarity | released 1.1.1 package/application |
+| Matrix | engine/HAL/application tests | physical devices, persistent client, virtual HAL | hot-plug, feedback prevention, independent devices/buffers | app + launchd engine + HAL integration |
+| MIDI | deterministic MIDI traffic and parser validation | real MIDI IN/OUT behavior | invalid files, correction/revalidation | macOS application/package workflow |
+
+The detailed application chapters remain authoritative for exact method and numerical qualification results.
+
+## 9.23 Adding a new validation case
+
+When a new feature or bug fix changes a measurement-critical path:
+
+1. define the behavior being claimed;
+2. construct a known-answer test if possible;
+3. preserve the original failure as a regression case;
+4. test representative boundary conditions;
+5. perform a physical test when OS, driver, hardware or analog behavior is involved;
+6. include a negative/rejection case where false acceptance would be dangerous;
+7. verify the installed artifact if packaging can affect the feature;
+8. update the handbook only after the tested behavior is established.
+
+This keeps documentation downstream of evidence rather than using documentation to define behavior that has not yet been demonstrated.
+
+## 9.24 Publication discipline
+
+A handbook reference measurement should include enough information to understand what was tested and what it demonstrates.
+
+At minimum, preserve:
+
+```text
+application/version
+test purpose
+sample rate
+buffer size where relevant
+interface/device
+physical or virtual path
+stimulus
+DUT state
+reference/baseline
+result
+repeatability/statistics
+acceptance or rejection criterion
+```
+
+A reference number without its test definition is not useful qualification evidence.
 
 # 10. Troubleshooting and measurement pitfalls
 
