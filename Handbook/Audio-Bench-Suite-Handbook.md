@@ -3528,25 +3528,704 @@ At that point, redefine the experiment or report the limitation. Measurement eng
 
 # 11. Technical and publication appendix
 
-## 11.1 Terminology
+This appendix collects definitions, compact reference material and publication rules that apply across the handbook. Application-specific operating details remain in Chapters 3 through 7, cross-Bench procedures in Chapter 8, qualification evidence in Chapter 9, and fault diagnosis in Chapter 10.
 
-**Baseline:** Reference measurement used to remove fixed path mismatch or establish a known state.  
-**DUT:** Device under test.  
-**dBFS:** Digital level relative to full scale; exact semantics depend on the measured quantity.  
-**FFT:** Fast Fourier Transform.  
-**Group delay:** Frequency-dependent timing associated with phase response.  
-**Correlation:** Similarity measure used by Latency Bench to estimate relative timing.  
-**Selection evidence:** Timing-candidate score used by Latency Bench.  
-**THD:** Total harmonic distortion under the documented Spectral Bench definition.  
-**THD+N:** Total harmonic distortion plus noise under the documented Spectral Bench definition.  
-**HAL:** macOS Core Audio Hardware Abstraction Layer.
+## 11.1 Units and conventions
 
-## 11.2 Publication figure checklist
+### Samples and time
 
-Replace every `FIGURE PLACEHOLDER` with a real screenshot, photograph or manually prepared diagram before PDF publication. Preserve figure numbers/captions unless the surrounding text is also updated.
+At sample rate \(F_s\), one sample represents:
 
-Use the actual released application version, crop unrelated desktop content, keep UI text readable at printed size, avoid personal paths/serial numbers/notifications, and use a consistent macOS appearance where practical.
+```text
+sample time = 1 / Fs seconds
+```
 
-## 11.3 Source-document policy
+and a delay of \(N\) samples represents:
 
-The individual project documentation remains the engineering source of truth. Development roadmaps are not reproduced wholesale as user-manual content, but validated technical facts and qualification material are incorporated where useful. Future handbook revisions should be checked against the current project Markdown documents before publication.
+```text
+delay_ms = 1000 * N / Fs
+```
+
+Examples:
+
+| Sample rate | One sample |
+| --- | ---: |
+| 44.1 kHz | 0.022676 ms |
+| 48 kHz | 0.020833 ms |
+| 96 kHz | 0.010417 ms |
+| 192 kHz | 0.005208 ms |
+
+Fractional-sample timing estimates are valid when the estimator supports sub-sample interpolation. They do not imply that the audio hardware processes fractional physical samples.
+
+### Frequency
+
+Frequency is expressed in hertz (Hz) or kilohertz (kHz). Unless a specific logarithmic relationship is stated, frequency values are ordinary physical frequency rather than FFT-bin numbers.
+
+### Level
+
+Digital audio level is normally expressed in dBFS. `0 dBFS` is the digital full-scale limit for the represented quantity.
+
+The handbook does not use dBFS as a universal substitute for analog voltage, SPL or power. Conversion to an analog quantity requires the relevant calibration.
+
+### Polarity and phase
+
+**Polarity** is sign inversion.  
+**Phase** is frequency-dependent angular relationship.
+
+A polarity inversion corresponds to 180 degrees for a sinusoidal component, but polarity and arbitrary phase response are not interchangeable concepts.
+
+## 11.2 Core terminology
+
+**Actual**  
+Spectral Bench sweep result representing the captured DUT response rather than the reference-normalized transfer response.
+
+**Baseline**  
+A stored reference measurement or state used to remove fixed path mismatch or compare against a later state. The exact semantics depend on the Bench application.
+
+**Buffer size**  
+Number of audio frames requested or used for a processing callback/buffer. It is not synonymous with complete path latency.
+
+**CC**  
+MIDI Control Change.
+
+**Complete-response timing**  
+Arrival timing of the measured DUT response, including timing effects caused by its transfer function, such as filter phase/group delay.
+
+**Correlation**  
+Similarity measure used by Latency Bench to estimate relative timing between reference and DUT captures.
+
+**dBFS**  
+Decibels relative to digital full scale.
+
+**DUT**  
+Device under test.
+
+**Extended analysis**  
+Latency Bench fallback analysis for difficult responses. It uses a longer probe/correlation window and magnitude-matches the reference spectrum to the captured DUT spectrum while retaining DUT phase.
+
+**FFT**  
+Fast Fourier Transform.
+
+**Group delay**  
+Frequency-dependent timing associated with phase response.
+
+**HAL**  
+macOS Core Audio Hardware Abstraction Layer.
+
+**Main / Aux**  
+First-class Matrix Bench output destinations with independent routing, gain, mute and master compression.
+
+**PC**  
+MIDI Program Change.
+
+**Reference path**  
+Known or simultaneously measured path used to establish the comparison state.
+
+**Selection evidence**  
+Latency Bench timing-candidate score based on correlation magnitude and actual overlap. It is distinct from the raw reported correlation.
+
+**THD**  
+Total harmonic distortion under the documented Spectral Bench harmonic definition.
+
+**THD+N**  
+Total harmonic distortion plus noise under the documented Spectral Bench definition and measurement bandwidth.
+
+**Transfer**  
+Spectral Bench referenced sweep result representing DUT path relative to the simultaneously captured reference path.
+
+## 11.3 Current macOS handbook versions
+
+This handbook edition documents the latest qualified macOS releases represented by its source set:
+
+| Application | macOS version |
+| --- | ---: |
+| Matrix Bench | 2.1.1 |
+| MIDI Bench | 2.0.0 |
+| Signal Bench | 2.0.0 |
+| Spectral Bench | 2.1.0 |
+| Latency Bench | 1.1.1 |
+
+These are documentation targets, not a promise that every platform build shares the same version number.
+
+The handbook is intentionally macOS-first. Windows/Linux availability is mentioned only where it is technically useful to the documented macOS workflow or implementation context.
+
+## 11.4 macOS suite location
+
+The intended application-suite location is:
+
+```text
+/Applications/60°N Signal Works Audio Bench Suite
+```
+
+Individual project packages and suite-level packaging can evolve independently of the technical behavior described in the handbook.
+
+Where a package version is stated, it refers to the qualified artifact documented by the corresponding application chapter.
+
+## 11.5 Signal Bench quick reference
+
+Signal Bench 2.0.0 provides:
+
+```text
+Pink noise
+White noise
+Dual Sine
+broadband HPF / LPF
+defined measurement presets
+guitar interval/tuning functions
+harmonic enrichment
+Slicer
+Pick Attack
+Output Level
+Mute
+final output metering
+```
+
+For measurement work, record the signal mode, frequencies, individual tone levels where applicable, overall Output Level, filter settings and any modulation/enrichment state.
+
+Signal Bench does not insert a protective output limiter. Headroom remains the user's responsibility.
+
+## 11.6 Spectral Bench quick reference
+
+Spectral Bench 2.1.0 includes:
+
+```text
+FFT sizes: 4096 / 8192 / 16384 / 32768 / 65536
+Windows: Hann / Blackman-Harris 4-term / Flat Top
+Averaging: Off / Fast / Medium / Slow
+Peak Hold
+Raw / Noise Smooth spectrum presentation
+Input Gain
+frequency and dB viewport controls
+single-tone measurements
+H2-H10
+THD
+THD+N
+CCIF / DFD-style selective products
+SMPTE-style selective products
+referenced sweeps
+Actual / Transfer
+Raw / Auto / Manual / Baseline phase
+PNG / CSV / TXT saved results
+```
+
+Input Gain modifies analyzer input samples. Viewport controls modify presentation only.
+
+For saved results, preserve the analyzer/sweep mode and phase-compensation metadata rather than inferring them later from the plotted image.
+
+## 11.7 Latency Bench quick reference
+
+Latency Bench 1.1.1 uses a two-path physical measurement:
+
+```text
+Reference OUT A -> direct/reference path -> IN A
+DUT OUT B       -> DUT path              -> IN B
+```
+
+The baseline measures the fixed relative mismatch of the direct dual-loop setup. DUT measurement then reports DUT-path timing relative to that baseline.
+
+Normal-analysis constants:
+
+```text
+probe length:        2048 samples
+capture length:     32768 samples
+prime:               2048 samples
+tail:               12288 samples
+maximum signed lag: 16384 samples
+correlation window:  4096 samples
+default probe level: -30 dBFS
+```
+
+Extended analysis uses:
+
+```text
+probe length:        8192 samples
+correlation window: 12288 samples
+```
+
+The selection score is conceptually:
+
+```text
+abs(correlation) * sqrt(actual_overlap / nominal_window)
+```
+
+A valid primary candidate requires adequate evidence. A sufficiently strong separate candidate at or above the documented 90% competing-evidence ratio causes rejection.
+
+Timing selection is based on correlation magnitude, so polarity inversion does not by itself change the measured arrival time.
+
+## 11.8 Matrix Bench quick reference
+
+Matrix Bench 2.1.1 architecture:
+
+```text
+Matrix Bench GUI
+        |
+        v
+MatrixBenchEngine
+   |           |
+   v           v
+physical      Matrix virtual
+devices       Core Audio device
+```
+
+Core signal flow:
+
+```text
+input
+-> raw input meter
+-> INV
+-> HPF / LPF
+-> matrix crosspoint gain
+-> Main or Aux destination gain/mute
+-> destination master compressor
+-> output
+```
+
+Qualified selectable buffer sizes are:
+
+```text
+16 / 32 / 64 / 128 / 256 / 512
+```
+
+The Matrix virtual device provides 8 inputs and 8 outputs to macOS audio clients.
+
+The persistent engine service label is:
+
+```text
+works.60n.matrixbench.engine
+```
+
+The GUI is a control surface for the persistent engine; closing it should not stop qualified headless routing.
+
+`matrixbenchctl` exists as an engineering/service command-line interface, not as a prerequisite for normal operation.
+
+## 11.9 MIDI Bench quick reference
+
+MIDI Bench 2.0.0 provides:
+
+```text
+MIDI IN selection
+MIDI OUT selection
+channel selection
+Incoming monitor
+Outgoing monitor
+timestamps
+Raw bytes
+Pause
+Auto-scroll
+Clear
+manual CC
+manual PC
+Run from file
+Browse / Edit / Run / Stop / Loop
+BK / SLEEP delay commands
+persistent device/channel state
+```
+
+Examples of the documented command-file forms:
+
+```text
+CH 1 CC 12 VAL 67
+CH 3 PC 4
+```
+
+The project README remains authoritative for the exact accepted delay-command grammar and parser rules.
+
+## 11.10 Cross-Bench quantity ownership
+
+Use the tool whose measurement definition matches the quantity:
+
+| Quantity | Primary Bench |
+| --- | --- |
+| stimulus definition | Signal Bench |
+| level/spectrum/harmonics | Spectral Bench |
+| THD / THD+N / selective IM products | Spectral Bench |
+| referenced magnitude response | Spectral Bench |
+| referenced phase response | Spectral Bench |
+| physical-path arrival timing | Latency Bench |
+| complete-response timing of a filtered path | Latency Bench |
+| audio routing / processing state | Matrix Bench |
+| MIDI traffic / deterministic MIDI command state | MIDI Bench |
+
+This table prevents similar-looking values from being treated as interchangeable measurements.
+
+## 11.11 Latency interpretation reference
+
+### Buffer latency
+
+A buffer contributes time proportional to its frame count and sample rate, but the complete path can contain several buffers and other fixed/variable delays.
+
+### Transport latency
+
+Transport latency describes the path's underlying propagation/processing delay without intentionally attributing filter group-delay behavior to transport.
+
+### Complete-response timing
+
+Latency Bench measures the arrival supported by the actual response presented to it. For a strongly filtered path, the result can therefore include substantial filter phase/group-delay timing.
+
+### Acoustic propagation
+
+At ordinary room conditions, sound in air takes roughly 2.9 ms per metre. Acoustic distance can therefore dominate electronic low-latency differences.
+
+When microphones and loudspeakers are part of a latency experiment, include their physical spacing in the interpretation.
+
+## 11.12 Phase-reference summary
+
+| Spectral phase mode | Meaning |
+| --- | --- |
+| Raw | measured phase including transport delay |
+| Auto | phase after response-dependent estimated constant-delay removal |
+| Manual | phase after user-specified known delay removal |
+| Baseline | phase relative to a stored comparison state |
+
+Use Manual when an independent Latency Bench result is intentionally being used as the constant-delay reference.
+
+Do not assume Auto is an independent physical-latency measurement.
+
+## 11.13 Distortion-reference summary
+
+**THD** is based on the documented harmonic set relative to the fundamental.
+
+**THD+N** includes non-fundamental content/noise within its defined bandwidth.
+
+**CCIF / DFD-style** and **SMPTE-style** modes report selected intermodulation products defined by Spectral Bench. They are not silently converted into a standards-defined aggregate IM percentage.
+
+Every comparison should preserve frequency, level, sample rate and measurement bandwidth where applicable.
+
+## 11.14 Matrix routing record
+
+For a reproducible Matrix configuration, record:
+
+```text
+Matrix Bench version
+input device / channels
+Main device / channels
+Aux device / channels
+sample rate
+buffer size
+crosspoint gains
+input INV / HPF / LPF
+Main/Aux gain and mute
+compressor state/settings
+snapshot name
+MIDI assignments where relevant
+virtual-channel mapping
+physical wiring
+```
+
+For latency-sensitive routing, add the measured path latency rather than deriving it from the selected buffer.
+
+## 11.15 Measurement record template
+
+A compact generic record can use:
+
+```text
+Title:
+Date:
+Purpose / question:
+
+Applications and versions:
+Audio interface/device:
+Sample rate:
+Buffer size:
+Physical wiring:
+Virtual routing:
+
+Stimulus:
+Stimulus level:
+DUT:
+DUT state:
+MIDI state/command:
+
+Reference/baseline:
+Measurement mode:
+Bandwidth:
+Phase compensation:
+
+Primary result:
+Run statistics/repeatability:
+Acceptance/rejection status:
+
+Saved files:
+Notes:
+```
+
+Not every field applies to every test. Omit irrelevant fields rather than filling them with guessed values.
+
+## 11.16 MIDI test record
+
+For a reproducible MIDI-side test:
+
+```text
+MIDI Bench version
+MIDI IN device
+MIDI OUT device
+channel
+message type
+CC / PC number
+value
+command-file contents/revision
+delay settings
+Loop state
+target device
+target function
+observed timestamps
+```
+
+When MIDI controls an audio measurement, keep this record with the corresponding audio result.
+
+## 11.17 Saved-result file discipline
+
+Prefer descriptive filenames that identify the DUT and state without requiring the containing directory to explain them.
+
+For example:
+
+```text
+qc-loop-off-48k.txt
+qc-loop-on-48k.txt
+sub-lpf-20-160-24db.csv
+sub-lpf-20-160-24db.png
+matrix-main-aux-routing-notes.txt
+```
+
+Keep companion files from the same measurement together. Do not rename only one member of a Spectral Bench PNG/CSV/TXT result set in a way that obscures their relationship.
+
+For formal comparison, store a short setup record beside the machine-generated files.
+
+## 11.18 Figure placeholder specification
+
+Every handbook placeholder intended for later publication should contain:
+
+```text
+Figure number
+Application
+Subject
+Show
+Crop
+Suggested size
+Caption
+```
+
+The image itself must be a real screenshot, photograph or manually prepared technical diagram.
+
+Do not replace a placeholder with a generated imitation of the application UI. Publication screenshots should show the actual qualified application version.
+
+## 11.19 Screenshot preparation
+
+For application screenshots:
+
+- use the documented macOS release;
+- use representative but non-sensitive device names/data;
+- remove unrelated desktop windows;
+- avoid notifications and personal information;
+- crop to the content identified by the placeholder;
+- keep text readable at the intended print size;
+- use consistent macOS appearance where practical;
+- preserve enough surrounding UI to make the shown control understandable.
+
+Do not enlarge a low-resolution screenshot after capture when a correctly sized native capture can be made instead.
+
+## 11.20 Diagram preparation
+
+Diagrams should clarify signal or control flow that is harder to understand from prose alone.
+
+Use simple engineering notation. Identify direction, channels and physical versus virtual boundaries where relevant.
+
+A diagram should not imply connections that the software creates automatically if the user must actually make those connections.
+
+For physical measurement diagrams, distinguish cables from software routes.
+
+## 11.21 Captions and cross-references
+
+A caption should explain what the figure demonstrates, not merely repeat the window title.
+
+Prefer:
+
+> **Figure 5.3.** Dual-path Latency Bench wiring with the direct reference loop on A and DUT path on B.
+
+over:
+
+> **Figure 5.3.** Latency Bench.
+
+When prose depends on a figure, refer to its number. Keep figure numbering chapter-local (`Figure 3.1`, `Figure 3.2`, and so on).
+
+If figures are added or removed during publication layout, update both the caption and every textual cross-reference.
+
+## 11.22 Tables
+
+Tables are appropriate for:
+
+- version summaries;
+- fixed parameter sets;
+- qualification matrices;
+- measurement results;
+- comparison of modes with clearly shared attributes.
+
+Avoid turning procedural prose into a large table merely to reduce page count.
+
+Every numeric reference table should state enough context that the values remain interpretable when read independently of the surrounding paragraph.
+
+## 11.23 Code and command blocks
+
+Use fenced blocks for:
+
+- terminal commands;
+- signal-flow summaries;
+- command-file examples;
+- measurement records;
+- fixed parameter sets.
+
+Commands intended for users should be copy-pastable as complete blocks.
+
+Pseudocode or conceptual formulas must be labeled by context so they are not mistaken for literal application syntax.
+
+## 11.24 Source hierarchy
+
+The handbook is the publication-oriented synthesis, but technical claims originate in the individual project documentation and validated implementation state.
+
+The editorial hierarchy is:
+
+```text
+qualified implementation / tests
+-> authoritative project Markdown
+-> Audio Bench Suite Handbook.md
+-> generated DOCX publication copy
+-> manually finished DOCX / PDF publication
+```
+
+The Markdown handbook remains the canonical maintainable book source.
+
+The DOCX is a publication copy and can contain layout adjustments, screenshots and page-level editing. Changes that alter technical meaning should be reconciled back into the Markdown source rather than existing only in the publication copy.
+
+## 11.25 Source-map policy
+
+`Handbook/SOURCE_MAP.md` records which project documents feed the handbook and the editorial policy used when incorporating them.
+
+The source map is not a bibliography for readers. It is a maintenance tool for future handbook revisions.
+
+When an application changes:
+
+1. update and validate the application project;
+2. update its authoritative Markdown documentation;
+3. identify affected handbook chapters through `SOURCE_MAP.md`;
+4. revise the canonical handbook;
+5. regenerate the publication copy.
+
+This avoids using an old handbook paragraph as the source of truth for a newer application.
+
+## 11.26 Roadmaps and historical material
+
+Development roadmaps are useful engineering records, but they are not automatically user-manual content.
+
+Include roadmap material only when it describes:
+
+- implemented behavior that is still current;
+- a limitation the user must understand;
+- qualification evidence relevant to the released version;
+- architecture needed to operate or interpret the tool.
+
+Do not publish unresolved ideas as current features.
+
+Historical debugging detail belongs in the handbook only when it explains a measurement limitation, validation method or architectural decision that remains technically relevant.
+
+## 11.27 Version-specific statements
+
+A version number attached to a technical statement is a claim about that release.
+
+Before publication:
+
+- verify the current macOS version of all five applications;
+- verify version-specific package names;
+- verify documented test counts;
+- verify installer paths;
+- verify virtual-device and service identifiers;
+- verify any reference measurement explicitly associated with a release.
+
+Do not infer the published macOS version from one build-system variable when the project documentation explicitly distinguishes platform release versions.
+
+## 11.28 macOS-first publication scope
+
+This edition is a macOS handbook.
+
+Cross-platform information is appropriate when it explains:
+
+- available plug-in formats;
+- portability of a project;
+- a platform-specific technical difference;
+- why a version number differs;
+- a validation limitation relevant to readers.
+
+It should not turn each application chapter into three parallel operating manuals.
+
+The primary version table in Section 11.3 therefore lists macOS releases only.
+
+## 11.29 Credits and attribution
+
+Preserve technical credits carried by the source projects.
+
+In particular, Signal Bench's Pink-noise implementation is based on Stefan Stenzel's documented extended 20-source approach, as described in the Signal Bench chapter and project documentation.
+
+Do not remove attribution merely to make the publication read more uniformly.
+
+Any third-party license text that must accompany distributed software belongs with the distribution in the form required by that component's license. The handbook should not invent or paraphrase legal obligations.
+
+## 11.30 Pre-publication technical checklist
+
+Before producing the publication DOCX:
+
+```text
+[ ] all five macOS versions verified
+[ ] chapter claims checked against current project docs
+[ ] SOURCE_MAP.md current
+[ ] duplicate imported-source passages removed
+[ ] terminology consistent
+[ ] units and decimal notation consistent
+[ ] all internal chapter/section references valid
+[ ] all figure placeholders use the standard fields
+[ ] figure numbering continuous within each chapter
+[ ] no placeholder represented as a real screenshot
+[ ] validation numbers checked against their source
+[ ] package/install statements current
+[ ] macOS-first scope applied consistently
+[ ] roadmap/future work not presented as released behavior
+[ ] credits/attributions retained
+```
+
+This checklist is performed on the canonical Markdown, not only on the later DOCX.
+
+## 11.31 Publication workflow
+
+The intended publication chain is:
+
+```text
+authoritative project Markdown
+        |
+        v
+Audio-Bench-Suite-Handbook.md
+        |
+        v
+generated Handbook.docx
+        |
+        v
+manual screenshot insertion and layout pass
+        |
+        v
+final PDF
+```
+
+The generated DOCX should preserve heading hierarchy, tables, code blocks, captions and conspicuous figure placeholders.
+
+The manual publication pass can refine pagination and visual balance, but it should not silently rewrite measurement definitions.
+
+## 11.32 Final publication gate
+
+The handbook is ready to move from canonical Markdown to publication layout only when:
+
+1. all substantive chapters have completed their editorial pass;
+2. the full-book source consistency pass is clean;
+3. versions and qualification numbers match the authoritative project docs;
+4. duplicate or contradictory passages have been resolved;
+5. figure placeholders are complete and consistently numbered;
+6. source mapping is current;
+7. remaining TODOs are publication/layout tasks rather than unresolved technical claims.
+
+Passing this gate does not mean the PDF is finished. It means the **technical manuscript is stable enough to typeset**.
