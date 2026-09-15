@@ -206,174 +206,122 @@ That short check prevents more bad measurements than additional decimal places e
 
 # 3. Signal Bench
 
-Signal Bench is the suite's deterministic signal and stimulus generator.
+Signal Bench 2.0.0 for macOS is the suite's deterministic audio test-signal generator. It provides broadband Pink and White noise, single- and dual-sine stimuli, standard analyzer-test presets, guitar-oriented two-tone stimuli, deterministic envelope shaping and optional harmonic or pick-attack components.
 
+The design priority is repeatability. Signal Bench is intended to produce known, controllable stimuli for engineering work, not to imitate an instrument or make a test signal subjectively more natural.
 
 <!-- FIGURE PLACEHOLDER: Figure 3.1
 Application: Signal Bench
 Subject: Main application window
-Show: Signal mode, primary controls, output level, mute and meters.
+Show: Signal type, primary generator controls, Output Level, Mute and stereo meters.
+Crop: Application window only.
 Suggested size: full text width
-Caption: Signal Bench main window and primary signal-generation controls.
+Caption: Signal Bench 2.0.0 main window and primary signal-generation controls.
 -->
 
-**Figure 3.1.** Signal Bench main window and primary signal-generation controls.
+**Figure 3.1.** Signal Bench 2.0.0 main window and primary signal-generation controls.
 
+## 3.1 Before generating a signal
 
-## 3.1 Practical starting workflow
+Choose the required signal type, begin with a conservative **Output Level**, verify the intended output device and physical routing, and only then raise the level as required.
 
-Choose the required signal mode, set a conservative output level, confirm the physical/virtual output path and then unmute. When driving an analog DUT, remember that a digital dBFS setting does not by itself specify analog voltage; interface calibration and gain staging determine the actual voltage.
+A digital level in dBFS does not define the analog voltage at a DUT. Interface calibration, output gain and any analog attenuation or amplification determine the actual voltage. Signal Bench deliberately does not insert an automatic limiter, because limiting would alter the measurement stimulus. Complex Dual Sine combinations can therefore exceed full scale if individual tone levels, harmonics, Pick Attack and master level are set too high.
 
-For distortion and intermodulation work, use defined presets when repeatability matters.
+The default master Output Level is `-18.0 dB`, providing a conservative starting point.
 
+## 3.2 Signal modes at a glance
 
-## 3.2 Complete Signal Bench reference
+Signal Bench has three primary signal modes:
 
-**Current versions:** macOS **2.0.0**; Windows x64 / Linux x86_64 **1.1.0**
+| Mode | Primary use |
+| --- | --- |
+| **Pink** | broadband testing with approximately equal energy per octave |
+| **White** | broadband testing with approximately equal power density per Hz |
+| **Dual Sine** | single-tone, two-tone, IMD and deterministic guitar-oriented stimuli |
 
-Signal Bench is a compact audio test-signal generator built with C++17, JUCE and CMake. It combines broadband Pink and White noise with a deterministic Dual Sine mode for ordinary two-tone measurements, intermodulation testing and guitar-oriented nonlinear-signal experiments.
+Pink and White can use bandwidth filters. Dual Sine instead generates its spectral components directly and provides the tone, preset, harmonic, Slicer and Pick Attack controls described below.
 
-The project began as a pink-noise generator, but its scope grew enough that Signal Bench is now treated as the product name. macOS has advanced to Signal Bench 2.0.0 for the current UI/packaging release, while the validated Windows x64 and Linux x86_64 distributions remain at 1.1.0. Earlier Pink Noise Generator version numbering is intentionally not carried forward in current documentation or distribution package names.
+## 3.3 Pink noise
 
-Current target formats are:
+Signal Bench uses Stefan Stenzel's **A New Shade of Pink** multirate algorithm, specifically the extended low-frequency form with 20 octave-spaced one-bit noise sources. The method combines octave-rate one-bit sequences using first-order-hold interpolation and a small FIR correction near Nyquist.
 
-- macOS: Standalone, Audio Unit and VST3
-- Windows x64: Standalone and VST3
-- Linux x86_64: Standalone and VST3
+This architecture is attractive for a real-time generator because it combines good spectral accuracy with low computational cost. Signal Bench adapts the algorithm to ordinary C++ floating-point arithmetic rather than relying on the IEEE-754 accumulator trick used by the reference implementation.
 
-#### Feature set
+A fixed scale factor of `1.6` follows the generator. It is a compatibility normalization for practical RMS level and headroom, not part of Stenzel's algorithm and not a change to the spectral shape.
 
-- Pink and White broadband noise
-- selectable low-cut and high-cut filters with 6/12/24 dB/oct slopes
-- Dual Sine generation with independently adjustable F1/F2 and tone levels
-- phase-continuous oscillators with 20 ms frequency smoothing
-- guitar-oriented Root + Interval presets from E2 through E5
-- 12-TET and Just interval calculations
-- optional H2-H5 harmonic enrichment
-- optional Slicer with Gate and Guitar envelope shapes
-- deterministic Guitar envelope and Pick Attack excitation
-- adjustable Pick Attack level and first-order low-pass filter
-- master Output Level and Mute
-- stereo peak metering with dBFS scale
-- persistent host-visible parameters
+Left and right Pink channels use independent deterministic states, so the stereo output is decorrelated rather than duplicated mono noise. Resetting the processor restores deterministic starting states, which is useful in repeatable testing.
 
-#### Design goals
+### 3.3.1 Pink-noise validation
 
-The generator is intended to be useful for repeatable engineering work rather than to imitate an instrument in every detail.
-
-The Dual Sine path therefore favors:
-
-- deterministic output
-- known frequencies
-- known amplitude relationships
-- repeatable envelopes
-- repeatable Pick Attack events
-- simple mathematical behavior
-- no hidden randomization between retriggers
-- no oversampling-dependent or model-dependent "humanization"
-
-The Guitar envelope and Pick Attack options are measurement stimuli inspired by guitar behavior, not physical string or pickup models.
-
-#### Signal modes
-
-##### Pink
-
-Pink noise uses Stefan Stenzel's **A New Shade of Pink** multirate algorithm, specifically the extended low-frequency form with 20 octave-spaced one-bit noise sources. Stefan suggested this algorithm for Signal Bench, replacing the earlier Paul Kellet pinking filter.
-
-The method is unusually attractive for a real-time test generator because spectral accuracy and computational cost are both good. Instead of filtering full-rate white noise through a conventional approximation to a -3 dB/octave response, it combines independent one-bit noise sequences running at octave-spaced rates. First-order-hold (linear) interpolation gives the individual sources a steeper high-frequency roll-off than the zero-order-hold approach used by Voss/McCartney-style generators. A small 12-tap FIR correction term then trims the residual high-frequency error near Nyquist.
-
-Stenzel's implementation reduces the multirate interpolation to bit-state updates plus an accumulator. The FIR sees one-bit data, so its possible results can be precomputed as two 64-entry lookup tables. There is no per-sample general FIR convolution and no need for transcendental functions in the pink-noise path.
-
-Signal Bench uses Stenzel's extended 20-source low-frequency variant rather than only the 12-source form described in the main article. The extra very-low-rate sources cost almost nothing because they update only occasionally, while extending the low-frequency behavior for high host sample rates. The implementation keeps the algorithm's bit-oriented state machine and FIR coefficients, but expresses the original IEEE-754 accumulator trick as ordinary C++ floating-point arithmetic. This avoids type-punning/aliasing tricks and makes the code safer and clearer across Clang, GCC and MSVC.
-
-A fixed output scale of `1.6` is applied after the generator to keep its RMS level and practical headroom in the same general range as the previous Signal Bench pink source. This scaling changes level only; it does not change the spectral shape. A deterministic 16,777,216-sample reference run measured approximately `0.1941 RMS` for the previous Paul Kellet implementation and `0.1954 RMS` for the Stenzel implementation with this scale factor, a difference of about 0.7%. The scale factor is therefore a compatibility normalization, not part of Stenzel's algorithm.
-
-The Stenzel implementation was also measured directly from a deterministic 16,777,216-sample float capture using Welch-style overlapping Hann-window periodograms and 1/6-octave power averaging. The ideal comparison is a fitted `1/f` power spectral density, so the test measures spectral *shape* independently of absolute output level. The same discrete-time capture was interpreted at the supported host rates to check where the fixed generator spectrum falls in the 20 Hz to 20 kHz audio band:
+The implementation has been validated using a deterministic 16,777,216-sample float capture, overlapping Hann-window periodograms and 1/6-octave power averaging. Spectral shape is compared with a fitted ideal `1/f` power spectral density, independently of absolute level.
 
 | Interpreted sample rate | RMS spectral error vs fitted 1/f PSD | Maximum absolute 1/6-octave-bin error |
-|---:|---:|---:|
+| ---: | ---: | ---: |
 | 44.1 kHz | 0.066 dB | 0.212 dB |
 | 48 kHz | 0.070 dB | 0.284 dB |
 | 96 kHz | 0.085 dB | 0.295 dB |
 | 192 kHz | 0.118 dB | 0.350 dB |
 
-The same run measured `0.195411 RMS` (`-14.18 dBFS`) and a peak magnitude of `0.916451`, leaving useful headroom. Signal Bench keeps regression limits deliberately looser than the observed values: RMS must remain between `0.185` and `0.205`, peak magnitude below `1.0`, RMS spectral error no greater than `0.15 dB`, and maximum 1/6-octave-bin error no greater than `0.40 dB`. The limits are intended to catch implementation regressions without pretending that one finite stochastic capture is an exact analytical proof.
+The same reference run measured `0.195411 RMS` (`-14.18 dBFS`) and a peak magnitude of `0.916451`.
 
-The reference capture has a finite-record mean of about `+0.0499`. With the 20-source low-frequency form this is not treated as a fixed DC-offset failure: some of the additional octave-spaced components evolve on timescales much longer than a several-minute capture, so a finite segment need not average close to zero. A true DC term would require a different test than simply asserting a near-zero mean on one finite record.
+Regression limits are deliberately wider than the observed values: RMS must remain between `0.185` and `0.205`, peak magnitude below `1.0`, RMS spectral error no greater than `0.15 dB`, and maximum 1/6-octave-bin error no greater than `0.40 dB`. These are regression limits, not claims that one finite stochastic record constitutes an analytical proof.
 
-The reproducible tools are `tools/pink_noise_dump.cpp` and `tools/analyze_pink_noise.py`. Running the analyser with `--check` applies the regression limits above. NumPy is used only by the offline analysis tool, not by Signal Bench itself.
-For the complete four-rate check, create/reuse the project `.venv` with NumPy and run `tools/validate_pink_noise.sh`. It generates one deterministic 16,777,216-sample capture and evaluates it at 44.1, 48, 96 and 192 kHz with the regression limits enabled. `PINK_VALIDATION_SAMPLES` can be overridden for development smoke tests, but the published reference values above use the full 16,777,216-sample run.
+The finite reference record has a mean of approximately `+0.0499`. With the 20-source low-frequency form, extremely slow components evolve over timescales longer than the reference capture, so a finite record is not required to average close to zero. A true deterministic DC component would require a different test.
 
-The repository also contains `tools/pink_noise_dump.cpp` and `tools/analyze_pink_noise.py` for repeatable offline checks. The analysis tool reports RMS, finite-record mean, peak level and a 1/6-octave-smoothed PSD error against a fitted ideal `1/f` spectrum over 20 Hz to 20 kHz, or to 45% of the host sample rate when that is lower. The finite-record mean is reported rather than used as a strict DC test because the 20-source form intentionally contains extremely slow noise components; a finite capture can therefore have a visibly non-zero mean without containing a deterministic DC offset.
+### 3.3.2 Pink-noise algorithm credit
 
-Left and right channels use independent deterministic generator states, so stereo Pink output is decorrelated rather than duplicated mono noise. Resetting the processor restores deterministic starting states, which is useful for repeatable tests.
+The pink-noise algorithm is based on work by **Stefan Stenzel**, who directly suggested its use in Signal Bench. His *A New Shade of Pink* / *Not so new shade of pink* work describes the multirate first-order-hold method, LFSR-based one-bit noise sources and FIR lookup-table correction. Signal Bench's C++17/JUCE implementation is an adaptation rather than a verbatim copy of the reference source.
 
-##### Pink-noise algorithm credit
+The project documentation and source repository retain the detailed references and reproducible offline validation tools.
 
-The pink-noise algorithm is based on work by **Stefan Stenzel**, who also directly suggested using it in Signal Bench. His article *A New Shade of Pink* / *Not so new shade of pink* describes the multirate first-order-hold method, the LFSR-based one-bit noise sources and the FIR lookup-table correction. His reference repository states that the work is public domain.
+## 3.4 White noise
 
-References:
+White noise is generated directly from internal xorshift64* pseudorandom-number generators. The two output channels use different deterministic seeds and independent states.
 
-- Stefan Stenzel, *Not so new shade of pink*, DSP Bricks, May 2026: https://www.dspbricks.com/articles/pink-noise/
-- Stefan Stenzel, *A New Shade of Pink* reference implementation: https://github.com/Stenzel/newshadeofpink
+Unlike Pink noise, White noise is not passed through the pinking stage. The optional Low Cut and High Cut filters remain available.
 
-Signal Bench's implementation is an adaptation for its C++17/JUCE architecture; it is not a verbatim drop-in of Stenzel's original source.
+## 3.5 Broadband bandwidth controls
 
-##### White
+Pink and White modes provide independent bandwidth controls:
 
-White noise is generated directly from the internal xorshift64* pseudorandom-number generators.
+| Control | Range / behavior |
+| --- | --- |
+| **Low Cut** | 10 Hz to 2 kHz |
+| **High Cut** | 500 Hz to 24 kHz |
+| **Slope** | 6, 12 or 24 dB/octave |
+| **Default** | both filters Off; 12 dB/oct selected |
 
-The two output channels use different deterministic seeds and independent states.
+The 6 dB/oct setting uses a first-order section, 12 dB/oct uses a second-order Butterworth section, and 24 dB/oct uses two cascaded second-order sections forming a fourth-order Butterworth alignment. High Cut is clamped internally below Nyquist when necessary for the current sample rate.
 
-##### Dual Sine
+These filters are disabled in Dual Sine mode.
 
-Dual Sine generates two independently adjustable sinusoidal components:
+## 3.6 Dual Sine
 
-- **F1:** 10 Hz to 24 kHz
-- **F2:** 10 Hz to 24 kHz
-- **Tone 1 Level:** -60 to 0 dB
-- **Tone 2 Level:** -60 to 0 dB
+Dual Sine generates two independently adjustable sinusoidal components.
 
-Defaults:
+| Parameter | Range | Default |
+| --- | ---: | ---: |
+| F1 | 10 Hz to 24 kHz | 110.00 Hz |
+| F2 | 10 Hz to 24 kHz | 164.81378 Hz |
+| Tone 1 Level | -60 to 0 dB | -6.0 dB |
+| Tone 2 Level | -60 to 0 dB | -6.0 dB |
 
-- F1: `110.00 Hz`
-- F2: `164.81378 Hz`
-- Tone 1 Level: `-6.0 dB`
-- Tone 2 Level: `-6.0 dB`
+The default frequencies are A2 and E3 in 12-tone equal temperament.
 
-The default frequencies correspond to A2 and E3 in 12-tone equal temperament.
-
-Both oscillators are phase-continuous. A frequency control change does not reset oscillator phase. Manual frequency changes are smoothed over approximately 20 ms to reduce discontinuities.
-
-The generated Dual Sine sample is copied coherently to every active output channel.
-
-#### Dual Sine oscillator generation
-
-Each oscillator maintains a phase accumulator.
-
-For frequency `f`, sample rate `Fs` and current phase `phi`, one sample is generated from:
+Each oscillator uses a phase accumulator. For frequency `f`, sample rate `Fs` and phase `phi`:
 
 ```text
 x = sin(phi)
-```
-
-and the phase is advanced by:
-
-```text
 phi_next = phi + 2*pi*f/Fs
 ```
 
 with phase wrapping at `2*pi`.
 
-Frequency values are read through JUCE `SmoothedValue` objects. When F1 or F2 changes, the target frequency is approached over approximately 20 ms. Phase itself is not reset.
+Frequency changes are smoothed over approximately 20 ms. The oscillator phase itself is not reset, so a manual frequency change does not create an artificial hard phase restart. The resulting Dual Sine sample is copied coherently to every active output channel.
 
-This distinction is important for measurement use: changing the frequency may create the expected time-varying waveform during the transition, but it does not create an artificial hard phase restart.
+## 3.7 Single-tone, two-tone and IMD presets
 
-#### Two-tone and intermodulation testing
-
-A two-tone signal is useful for testing nonlinear systems because nonlinearities generate frequency components that are absent from the original input.
-
-For input frequencies `f1` and `f2`, products can include:
+A nonlinear DUT produces components that were not present in the original two-tone input. Depending on the nonlinearity, products can include:
 
 ```text
 f2 - f1
@@ -384,92 +332,46 @@ f1 + f2
 2f2 + f1
 ```
 
-plus higher-order combinations.
+Signal Bench supplies the known stimulus; analysis of the DUT output belongs to Spectral Bench or another analyzer.
 
-The generator does not calculate the resulting distortion products. It supplies known input components so the output of the device under test can be examined using, for example:
+For fast, repeatable analyzer testing, Signal Bench includes one-action presets matched to Spectral Bench measurement modes:
 
-- a DAW spectrum analyzer
-- an FFT analyzer
-- an oscilloscope
-- an audio analyzer
-- custom measurement software
+- 100 Hz single tone;
+- 1 kHz single tone;
+- 10 kHz single tone;
+- SMPTE-style 60 Hz + 7 kHz, with the 7 kHz component 12.0412 dB below the 60 Hz component, corresponding to a 4:1 amplitude ratio;
+- CCIF 19 kHz + 20 kHz, equal amplitudes.
 
-#### Measurement stimulus presets
+Loading one of these presets selects Dual Sine, establishes the required frequencies and relative tone levels, and disables Low Cut, High Cut, Slicer, added harmonics and Pick Attack shaping. Single-tone presets disable Tone 2.
 
-Dual Sine also includes one-action presets matched to Spectral Bench measurement modes:
+The preset deliberately preserves **Output Level** and **Mute**. A preset can therefore establish the spectral relationship without unexpectedly changing the user's overall test level or unmuting the generator.
 
-- **100 Hz single tone**
-- **1 kHz single tone**
-- **10 kHz single tone**
-- **SMPTE-style:** 60 Hz + 7 kHz, with the 7 kHz tone 12.0412 dB below the 60 Hz tone (4:1 amplitude ratio)
-- **CCIF:** 19 kHz + 20 kHz, equal amplitudes
+<!-- FIGURE PLACEHOLDER: Figure 3.2
+Application: Signal Bench
+Subject: Measurement stimulus presets
+Show: Dual Sine controls with the measurement preset selector/menu visible, including the single-tone, SMPTE-style and CCIF choices.
+Crop: Application window or relevant control area only.
+Suggested size: approximately 70% text width
+Caption: Signal Bench measurement presets provide deterministic stimuli matched to common Spectral Bench analyses.
+-->
 
-Loading a measurement preset selects Dual Sine, disables the low-cut and high-cut filters, slicer, added harmonics, and pick-attack shaping, and writes the required tone frequencies and relative levels. Single-tone presets disable Tone 2.
+**Figure 3.2.** Signal Bench measurement presets provide deterministic stimuli matched to common Spectral Bench analyses.
 
-The preset deliberately preserves the master **OUTPUT LEVEL** and **MUTE** state. This keeps the defined stimulus relationship deterministic without unexpectedly changing the user's overall test level or unmuting the generator.
+## 3.8 Guitar-oriented interval presets
 
-The SMPTE-style and CCIF presets correspond directly to the matching selective-product analysis modes in Spectral Bench.
+Dual Sine can also load two-note stimuli based on guitar-oriented roots from E2 through E5. Available intervals are minor 3rd, major 3rd, 5th and octave.
 
-#### Guitar-oriented interval presets
+The preset system supports both 12-tone equal temperament and simple Just ratios.
 
-Dual Sine includes a convenience preset loader for common guitar-related two-note tests.
-
-##### Root range
-
-Preset roots are selectable chromatically from:
-
-```text
-E2 through E5
-```
-
-E2 is approximately 82.41 Hz and E5 approximately 659.26 Hz in 12-TET.
-
-The E2-E5 range covers a practical guitar-oriented fundamental range while keeping the preset control concise. F1 and F2 remain freely adjustable over their complete 10 Hz-24 kHz ranges after loading a preset.
-
-##### Intervals
-
-Available intervals are:
-
-- minor 3rd
-- major 3rd
-- 5th
-- octave
-
-For example, with A2 as the root in 12-TET:
-
-| Preset | Interval |
-| --- | --- |
-| `A2 + C3` | minor 3rd |
-| `A2 + C#3` | major 3rd |
-| `A2 + E3` | 5th / power-chord interval |
-| `A2 + A3` | octave |
-
-Loading a preset writes the calculated frequencies into the normal F1/F2 parameters and turns **Tone 2 ON**, because the preset defines a two-tone interval stimulus. It does not lock the frequency controls.
-
-#### 12-TET and Just tuning
-
-The preset loader supports 12-tone equal temperament and simple Just ratios.
-
-##### 12-TET
-
-For an interval of `n` semitones:
+For 12-TET:
 
 ```text
 f2 = f1 * 2^(n/12)
 ```
 
-The intervals used by the UI are:
+where `n` is 3, 4, 7 or 12 semitones for the available intervals.
 
-| Interval | Semitones |
-| --- | ---: |
-| minor 3rd | 3 |
-| major 3rd | 4 |
-| 5th | 7 |
-| octave | 12 |
-
-##### Just
-
-The Just option uses:
+The Just ratios are:
 
 | Interval | Ratio |
 | --- | ---: |
@@ -478,23 +380,21 @@ The Just option uses:
 | 5th | `3/2` |
 | octave | `2/1` |
 
-This can be useful when comparing how a nonlinear system behaves with equal-tempered versus pure-ratio input tones.
+Loading a guitar interval preset writes the calculated values into the normal F1 and F2 parameters and enables Tone 2. The frequencies remain freely adjustable afterward.
 
-#### Harmonic enrichment
+These presets are useful for comparing nonlinear behavior with equal-tempered and pure-ratio input tones. They are measurement conveniences, not guitar-string models.
 
-Dual Sine includes a shared **HARMONICS** switch. It is **Off by default**.
+## 3.9 Harmonic enrichment
 
-When Off, each oscillator contributes only its sine fundamental.
+The optional **HARMONICS** function adds H2 through H5 to each Dual Sine tone. It is Off by default.
 
-When On, each tone contains its fundamental plus H2 through H5. Harmonic amplitude is:
+Harmonic amplitude follows:
 
 ```text
 amplitude(n) = 1 / n^2
 ```
 
-relative to the fundamental of that tone.
-
-Approximate levels are:
+relative to that tone's fundamental.
 
 | Harmonic | Relative level |
 | --- | ---: |
@@ -503,72 +403,29 @@ Approximate levels are:
 | H4 | -24.08 dB |
 | H5 | -27.96 dB |
 
-For each harmonic:
+A harmonic is omitted when its frequency reaches or exceeds `0.48 * sample_rate`, leaving a guard below Nyquist.
 
-```text
-harmonic_frequency = fundamental_frequency * harmonic_number
-```
+This is a deterministic way to create a spectrally richer known stimulus. It is not intended to model the harmonic structure of a real guitar string.
 
-A harmonic is omitted when:
+## 3.10 Slicer
 
-```text
-harmonic_frequency >= 0.48 * sample_rate
-```
+The Slicer is available in Dual Sine mode and is Off by default. Its rate is adjustable from 0.2 to 5.0 Hz, with a default of 2.0 Hz. Two shapes are available: **Gate** and **Guitar**.
 
-The 0.48 × Fs limit leaves a small guard below Nyquist rather than attempting to generate components arbitrarily close to Fs/2.
+### Gate
 
-The harmonic mode is deliberately simple and deterministic. It is useful for producing a richer known stimulus, but it is not intended to model a real guitar string.
+Gate is a deterministic 50% duty-cycle amplitude gate with 12 ms raised-cosine rise and fall edges. The finite edges reduce discontinuities compared with an instantaneous rectangular gate.
 
-#### Slicer
+### Guitar
 
-The Slicer is available in Dual Sine mode and is **Off by default**.
+Guitar shape provides a deterministic picked-chord-style amplitude envelope with:
 
-Parameters:
+- a fixed 5 ms raised-cosine onset;
+- 35% fast-decay component;
+- 65% slow-decay component;
+- fixed fast time constant of 120 ms;
+- adjustable slow decay from 0.2 to 5.0 s, default 2.0 s.
 
-- **Slicer Rate:** 0.2 to 5.0 Hz
-- Default Slicer Rate: 2.0 Hz
-- **Shape:** Gate or Guitar
-- **SLICER ON:** explicit enable switch
-
-The slicer phase is advanced sample by sample from the selected rate.
-
-Pink and White modes do not use the Slicer.
-
-##### Gate shape
-
-Gate is a deterministic 50% duty-cycle amplitude gate.
-
-The nominal cycle is:
-
-```text
-raised-cosine rise
--> full level
--> raised-cosine fall
--> zero
-```
-
-Rise and fall time:
-
-```text
-12 ms
-```
-
-The finite raised-cosine edges reduce discontinuities compared with an instantaneous rectangular gate.
-
-##### Guitar shape
-
-Guitar shape replaces the 50% gate with a deterministic picked-chord-style amplitude envelope.
-
-The envelope consists of:
-
-- fixed 5 ms raised-cosine onset
-- 35% fast-decay component
-- 65% slow-decay component
-- fixed fast time constant: 120 ms
-- adjustable slow decay: 0.2 to 5.0 s
-- default slow decay: 2.0 s
-
-For time `t` after the attack, the body is conceptually:
+Conceptually:
 
 ```text
 body(t) =
@@ -576,480 +433,91 @@ body(t) =
   + 0.65 * exp(-t / slow_decay)
 ```
 
-The beginning of each cycle is made continuous with the mathematically calculated end level of the previous cycle. The envelope therefore does not forcibly jump to zero at retrigger.
+The beginning of each cycle is made continuous with the mathematically calculated end level of the previous cycle rather than being forcibly reset to zero. The selected Slicer Rate determines the retrigger period.
 
-The selected Slicer Rate determines the retrigger period.
+## 3.11 Pick Attack
 
-#### Pick Attack
+Pick Attack is an optional deterministic excitation available only when Dual Sine, Slicer, Guitar shape and Pick Attack are all enabled. It is Off by default.
 
-Pick Attack is an optional additional excitation available when:
+The excitation begins with a deterministic xorshift32 sequence. The PRNG and filter states are reset identically on every Slicer retrigger, so each Pick Attack event is repeatable.
 
-```text
-Signal Type = Dual Sine
-SLICER ON = enabled
-Shape = Guitar
-PICK ATTACK = enabled
-```
-
-It is **Off by default**.
-
-The purpose is to add a short, repeatable pick/string-contact texture to the beginning of the Guitar envelope without turning the generator into a stochastic instrument simulation.
-
-##### Pick Attack source
-
-The excitation starts from a deterministic xorshift32 pseudorandom sequence.
-
-The PRNG and Pick Attack filter states are reset to the same values at every Slicer retrigger. Every Pick Attack event is therefore repeatable.
-
-The raw pseudorandom sequence is processed through two simple first-order operations:
-
-1. an adjustable first-order low-pass
-2. a fixed high-pass-style emphasis produced by subtracting a slower one-pole memory
-
-The fixed high-pass memory uses a nominal 1 kHz coefficient.
-
-##### Pick Attack low-pass
-
-**PICK LPF** controls the first-order low-pass cutoff:
-
-```text
-500 Hz to 12 kHz
-```
-
-Default:
-
-```text
-1800 Hz
-```
-
-The one-pole coefficient is calculated from the current sample rate:
+The source passes through an adjustable first-order low-pass and a fixed high-pass-style emphasis. **PICK LPF** ranges from 500 Hz to 12 kHz, default 1800 Hz. The low-pass coefficient is sample-rate aware:
 
 ```text
 a = exp(-2*pi*fc/Fs)
 ```
 
-The filter is therefore sample-rate aware.
+The event lasts 5 ms, with a 3 ms raised-cosine attack, an approximately 1.7 ms exponential decay time constant and a final 1.5 ms cosine tail that returns the event smoothly to zero.
 
-##### Pick Attack timing
+**PICK LEVEL** ranges from -20.0 to 0.0 dB, default -4.0 dB. It is not additionally multiplied by the Tone 1 or Tone 2 level controls. The Pick Attack is, however, multiplied by the same Guitar amplitude envelope as the tonal signal, tying it to the retriggered event rather than adding an unrelated click.
 
-The Pick Attack event has:
+## 3.12 Signal flow
 
-- total duration: 5 ms
-- raised-cosine attack ramp: 3 ms
-- exponential decay time constant: approximately 1.7 ms
-- final cosine tail: 1.5 ms
-
-The final tail forces the short event smoothly to zero at the end of its 5 ms window.
-
-The Pick Attack is then multiplied by the **same Guitar amplitude envelope** used for the tonal signal. This glues its timing to the chord envelope rather than treating it as a completely independent click.
-
-##### Pick Attack level
-
-**PICK LEVEL** range:
+The normal Dual Sine path is:
 
 ```text
--20.0 to 0.0 dB
+F1 -> frequency smoothing -> oscillator -> optional H2...H5 -> Tone 1 Level --\
+                                                                               +-> Slicer/Guitar envelope
+F2 -> frequency smoothing -> oscillator -> optional H2...H5 -> Tone 2 Level --/   -> Output Level
+                                                                                   -> Mute
+                                                                                   -> output
+                                                                                   -> meter peak capture
 ```
 
-Default:
+With Guitar Pick Attack enabled, its deterministic noise/filter/time-envelope path joins the two tonal paths before master Output Level.
 
-```text
--4.0 dB
-```
-
-The current Pick Attack implementation includes an internal normalization factor so that 0 dB represents a genuinely useful diagnostic maximum for this deliberately short filtered excitation. The user-facing PICK LEVEL control is the intended operating gain.
-
-The Pick Attack level is not additionally multiplied by the Tone 1 or Tone 2 level controls.
-
-#### Detailed Dual Sine signal flow
-
-Without Pick Attack:
-
-```text
-F1 parameter
-  -> 20 ms frequency smoothing
-  -> phase-continuous oscillator
-  -> optional H2...H5
-  -> Tone 1 Level
-                                     \
-                                      + -> Guitar/Gate envelope
-                                     /      -> master Output Level
-F2 parameter                               -> Mute
-  -> 20 ms frequency smoothing             -> output buffer
-  -> phase-continuous oscillator            -> meter peak capture
-  -> optional H2...H5
-  -> Tone 2 Level
-```
-
-With Guitar Pick Attack:
-
-```text
-deterministic xorshift32
-  -> first-order adjustable Pick LPF
-  -> fixed ~1 kHz high-pass emphasis
-  -> 5 ms Pick Attack time envelope
-  -> internal normalization
-  -> PICK LEVEL
-  -> Guitar amplitude envelope
-                                      \
-F1 tone path --------------------------+
-                                       + -> master Output Level
-F2 tone path --------------------------+    -> Mute
-                                            -> output buffer
-                                            -> meter peak capture
-```
-
-The Pick Attack PRNG and filter states are reset identically on each Guitar retrigger.
-
-#### Broadband-noise bandwidth controls
-
-Pink and White modes include independent Low Cut and High Cut controls.
-
-- **Low Cut:** 10 Hz to 2 kHz
-- **High Cut:** 500 Hz to 24 kHz
-- **Slope:** 6, 12 or 24 dB/octave
-- **Default:** both filters Off
-- **Default selected slope:** 12 dB/octave
-
-Implementation:
-
-- 6 dB/oct: first-order section
-- 12 dB/oct: second-order Butterworth section
-- 24 dB/oct: two cascaded second-order sections forming a fourth-order Butterworth alignment
-
-The High Cut is clamped internally below Nyquist if the user-selected value is too high for the current sample rate.
-
-These bandwidth filters are disabled in Dual Sine mode. Dual Sine spectral content is generated directly.
-
-#### Pink / White signal flow
+Pink and White use the simpler path:
 
 ```text
 independent channel PRNG
-  -> Pink filter, if Pink mode
+  -> Pink algorithm, if Pink mode
   -> optional Low Cut
   -> optional High Cut
-  -> master Output Level
+  -> Output Level
   -> Mute
-  -> output buffer
+  -> output
   -> channel meter peak capture
 ```
 
-White mode bypasses the pinking filter.
+## 3.13 Output Level, Mute and metering
 
-#### Output Level and headroom
+Master **Output Level** ranges from -60.0 to 0.0 dB and defaults to -18.0 dB. It follows the bandwidth filters in Pink/White mode and follows all tonal, harmonic, envelope and Pick Attack components in Dual Sine mode.
 
-Master **Output Level** range:
+The 0 dB maximum is intentional. Pink noise has relatively modest RMS level because of its broadband statistical waveform and crest factor, but the validated generator still produces instantaneous peaks close to full scale. Increasing broadband level through hidden limiting, compression, clipping or peak normalization would alter the stimulus.
 
-```text
--60.0 to 0.0 dB
-```
+**MUTE** zeros the final output after generation and gain processing. Metering follows that final value, so the meters fall toward their floor while muted.
 
-Default:
+Signal Bench 2.0.0 presents independent left/right peak meters with engineering dBFS markings at 0, -6, -12, -18, -24, -36, -48 and -60 dBFS. The DSP peak comes from the same final sample written to the output buffer.
 
-```text
--18.0 dB
-```
+The visible meter may react before the corresponding sound emerges from the physical output because the UI sees the generated buffer before downstream host, driver and hardware buffering reaches the DAC. No fixed artificial meter delay is added because the required compensation would depend on the system. GUI-only meter smoothing uses fast attack and approximately 0.5 s release and does not alter the audio.
 
-In Pink and White modes it is applied after bandwidth filtering.
+The meters are useful output indicators, not precision analyzer channels.
 
-In Dual Sine mode it is applied after the tonal components, optional harmonics, Slicer/Guitar envelope and optional Pick Attack have been combined.
+## 3.14 State persistence
 
-The Tone 1 and Tone 2 levels are independent of master Output Level.
+Signal Bench uses JUCE `AudioProcessorValueTreeState`. Host-visible persistent state includes the signal type, master level, bandwidth-filter state and settings, Mute, F1/F2, tone levels, Slicer settings, Guitar decay, Pick Attack settings and Harmonics state.
 
-Multiple components can sum above full scale. For example, two fundamentals, their harmonics and Pick Attack can all contribute to the instantaneous output. The generator intentionally does not insert an automatic limiter because limiting would alter the measurement stimulus.
+The Root, Interval and Tuning selectors are convenience controls. Loading a preset calculates and writes the resulting values into the ordinary persistent parameters.
 
-The default tone levels and master level provide conservative starting headroom, but users remain responsible for suitable levels.
+## 3.15 macOS formats and installation
 
-The dB controls are gain controls; they are not claims of calibrated broadband RMS dBFS output.
+Signal Bench 2.0.0 is provided on macOS as:
 
-#### Mute
+- Standalone;
+- Audio Unit;
+- VST3.
 
-**MUTE** zeros the final output sample after generation and gain processing.
+The Audio Unit is a Music Device, allowing Logic Pro to expose Signal Bench as a Software Instrument.
 
-Metering follows the muted final value, so the meters fall toward their floor while muted.
-
-#### Metering
-
-The UI provides independent left and right peak indicators with a central dBFS scale.
-
-Scale markings:
+The current identities are:
 
 ```text
-0
--6
--12
--18
--24
--36
--48
--60 dBFS
+Bundle identifier: works.60n.signalbench
+AU identity:       aumu / SgB1 / Sn60
+Vendor:            60°N Signal Works
 ```
 
-##### What the meter measures
-
-The DSP peak is calculated from the same final sample value that is written to the audio output buffer.
-
-For Dual Sine, the flow is effectively:
-
-```text
-generate final sample
--> write sample to output buffer
--> compare abs(sample) with current block peak
--> publish block peak to UI
-```
-
-For Pink and White, each output channel performs the same process independently.
-
-There is no separate Slicer or Guitar-envelope timing path for the meter.
-
-##### Visible meter lead versus audible output
-
-The UI can visibly react before a listener hears the corresponding sample at the physical audio output. This is not an internal generator/meter synchronization offset: the meter reads the buffer before downstream host and audio-device buffers have necessarily reached the DAC.
-
-The amount of apparent lead can therefore depend on:
-
-- audio-device buffer size
-- host buffering
-- driver behavior
-- output-device latency
-
-No fixed artificial meter delay is applied because the correct compensation would be system dependent.
-
-UI smoothing affects only the displayed bars and does not alter audio.
-
-The meters are useful indicators, not precision calibrated analyzer channels.
-
-#### Parameters and state persistence
-
-The plug-in uses JUCE `AudioProcessorValueTreeState`.
-
-Host-visible, persistent parameters are:
-
-- Signal Type
-- Output Level
-- Low Cut Enabled
-- Low Cut
-- High Cut Enabled
-- High Cut
-- Filter Slope
-- Mute
-- Tone 1 Frequency
-- Tone 2 Frequency
-- Tone 1 Level
-- Tone 2 Level
-- Slicer Enabled
-- Slicer Rate
-- Slicer Shape
-- Guitar Decay
-- Pick Attack Enabled
-- Pick Attack Level
-- Pick Attack Low Pass
-- Harmonics Enabled
-
-The guitar Root / Interval / Tuning selectors and LOAD button are convenience UI controls. Loading a preset calculates and writes F1 and F2 into the normal persistent frequency parameters.
-
-#### Plug-in formats
-
-##### macOS
-
-- Standalone
-- Audio Unit
-- VST3
-
-The AU is configured as a Music Device (`aumu`), allowing Logic Pro to expose it as a Software Instrument.
-
-AU identity:
-
-```text
-aumu / SgB1 / Sn60
-```
-
-Vendor / manufacturer:
-
-```text
-60°N Signal Works
-```
-
-Bundle identifier:
-
-```text
-works.60n.signalbench
-```
-
-##### Windows x64
-
-- Standalone
-- VST3
-
-##### Linux x86_64
-
-- Standalone
-- VST3
-
-Audio Unit is macOS-only.
-
-#### Platform validation status
-
-Signal Bench 2.0.0 for macOS retains the validated 1.1.0 signal-generation/DSP baseline and adds the current macOS UI and packaging work. The final 2.0.0 clean-install validation is performed from the generated installer before release.
-
-The macOS 2.0.0 changes include:
-
-- Matrix Bench-style stereo output meters with engineering dB scales
-- GUI-only fast-attack / approximately 0.5 s release meter ballistics; audio/DSP measurements are not smoothed
-- compacted upper rotary controls and vertical layout
-- `OUTPUT LEVEL` meter heading and revised meter placement
-- refreshed line-free spectrum icon artwork, used by the macOS app bundle
-- Standalone installation inside `/Applications/60°N Signal Works Audio Bench Suite`
-
-The established macOS validation baseline includes:
-
-- clean native Release build
-- Standalone installed and tested
-- Audio Unit installed, validated with `auval`, and tested in Logic Pro
-- VST3 built and installed
-- VST3 vendor metadata verified as UTF-8 `60°N Signal Works`
-- macOS installer package built, installed, and smoke-tested
-- measurement stimulus presets functionally tested
-- Pink-noise regression validation passed at 44.1, 48, 96, and 192 kHz
-
-Signal Bench 1.1.0 remains the validated native release on Windows x64 and Linux x86_64. The Windows Release build, installer, installed Standalone and VST3 were smoke-tested successfully. The Linux Release build, four-rate pink-noise regression, portable package, installed Standalone and VST3, and desktop integration were validated successfully.
-
-The macOS distribution package is currently unsigned. Platform security mechanisms may therefore warn about or block it; see the installation notes below.
-
-#### Future development
-
-##### Output Level headroom investigation
-
-An increase above the current **0 dB maximum Output Level** was investigated, particularly because broadband Pink noise can appear relatively low in RMS level compared with a sine-wave stimulus.
-
-The investigation showed that this is not unused digital headroom. White noise already approaches full-scale peaks by construction, while the deterministic Pink-noise generator produces approximately **-14.18 dBFS RMS** but has observed instantaneous peaks close to **0 dBFS**. The lower Pink-noise RMS level is therefore a consequence of its broadband statistical waveform and crest factor, not an unnecessarily conservative master-level limit.
-
-The existing **0 dB maximum is intentionally retained**.
-
-Signal Bench will not increase broadband-noise level by introducing hidden limiting, compression, clipping, peak normalization, or other nonlinear processing. Doing so would alter the measurement stimulus and would be contrary to the purpose of the application.
-
-The existing Pink and White noise generators therefore remain unchanged.
-
-#### Requirements
-
-Common requirements:
-
-- Git
-- CMake 3.22 or newer
-- C++17 compiler
-- Internet access for the first configure unless JUCE is already available locally
-
-CMake fetches JUCE from its official repository and pins JUCE `8.0.10`.
-
-##### macOS prerequisites
-
-Build:
-
-- Xcode Command Line Tools or Xcode
-- Apple Clang
-- macOS SDK
-- CMake
-- Git
-
-Installer:
-
-- `pkgbuild`
-- `productbuild`
-
-Public distribution without Gatekeeper warnings requires appropriate Apple signing and notarization.
-
-##### Windows x64 prerequisites
-
-Build:
-
-- Git
-- CMake
-- Visual Studio 2022 Build Tools with C++ workload
-
-Installer:
-
-- Inno Setup 6
-
-Optional icon regeneration:
-
-- ImageMagick
-
-##### Linux x86_64 prerequisites
-
-The tested Ubuntu toolchain uses:
-
-- Git
-- CMake
-- Ninja
-- GCC/G++
-- ImageMagick for installation-time icon resizing
-
-JUCE development packages used on Ubuntu include:
-
-```text
-libasound2-dev
-libjack-jackd2-dev
-libx11-dev
-libxext-dev
-libxrandr-dev
-libxinerama-dev
-libxcursor-dev
-libfreetype6-dev
-libfontconfig1-dev
-libgl1-mesa-dev
-libglu1-mesa-dev
-libwebkit2gtk-4.1-dev
-libgtk-3-dev
-```
-
-Package names can differ on other distributions.
-
-#### Build
-
-##### macOS
-
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release -j
-```
-
-After installing the AU:
-
-```sh
-auval -v aumu SgB1 Sn60
-```
-
-##### Windows x64
-
-From PowerShell:
-
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
-```
-
-##### Linux x86_64
-
-```sh
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j "$(nproc)"
-```
-
-#### macOS installer
-
-Build:
-
-```sh
-./packaging/macos/build-installer.sh
-```
-
-Expected output:
-
-```text
-dist/Signal-Bench-2.0.0-macOS.pkg
-```
-
-The package installs:
+The individual macOS package installs:
 
 ```text
 /Applications/60°N Signal Works Audio Bench Suite/Signal Bench.app
@@ -1057,265 +525,58 @@ The package installs:
 /Library/Audio/Plug-Ins/VST3/Signal Bench.vst3
 ```
 
-The package is unsigned unless signing identities are supplied to the packaging script. The macOS 2.0.0 release is validated by removing the previous local installation and performing a clean installer-only installation before the release checkpoint.
+At the documented 2.0.0 release checkpoint, the package is unsigned. macOS may therefore require explicit approval in **System Settings > Privacy & Security** when the package is obtained from a trusted source. Signing and notarization are distribution concerns and do not change the signal-generation algorithms described in this chapter.
 
-##### Installing an unsigned macOS package
+## 3.16 Validation status
 
-Only bypass Gatekeeper when the package source is trusted.
+The macOS 2.0.0 release retains the established signal-generation/DSP baseline while updating the macOS UI, meter presentation and ballistics, artwork and packaging.
 
-If macOS blocks the package:
+The qualified macOS validation includes:
 
-1. Attempt to open the `.pkg`.
-2. Dismiss the warning.
-3. Open **System Settings -> Privacy & Security**.
-4. Find the blocked-package message.
-5. Choose **Open Anyway**.
-6. Authenticate if requested.
-7. Confirm the action.
-8. Run the installer normally.
+- clean native Release build;
+- Standalone installation and functional testing;
+- Audio Unit installation, `auval` validation and Logic Pro testing;
+- VST3 build and installation, including vendor metadata verification;
+- installer payload and installer-only clean-install validation;
+- final installed Standalone smoke test and UI/function validation;
+- functional testing of measurement stimulus presets;
+- Pink-noise regression validation at 44.1, 48, 96 and 192 kHz.
 
-Restart the plug-in host if it was open during installation.
+The pink-noise figures in Section 3.3.1 are the published quantitative reference values for that generator validation.
 
-#### Windows installer
+## 3.17 Practical workflows
 
-Build Release targets first:
+### Generate a known single tone
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\packaging\windows\build-installer.ps1
-```
+1. Select the appropriate 100 Hz, 1 kHz or 10 kHz measurement preset.
+2. Confirm Output Level and Mute.
+3. Verify the physical output level at the DUT when analog calibration matters.
+4. Use Spectral Bench or another analyzer to inspect the DUT output.
 
-Expected output:
+### Run an IMD measurement
 
-```text
-dist\Signal-Bench-1.1.0-Windows-x64.exe
-```
+Select the SMPTE-style or CCIF preset corresponding to the intended Spectral Bench analysis. The preset establishes the required frequency and amplitude relationship while preserving master Output Level and Mute.
 
-The installer places the Standalone application under:
+### Exercise a nonlinear guitar-oriented device
 
-```text
-C:\Program Files\Signal Bench\
-```
+Load a Root + Interval preset, choose 12-TET or Just tuning as required, and first measure with Harmonics, Slicer and Pick Attack disabled. Add those deterministic components one at a time when the experiment specifically requires a richer or time-varying stimulus. This keeps the cause of any observed change identifiable.
 
-and VST3 under:
+### Generate bandwidth-limited noise
 
-```text
-C:\Program Files\Common Files\VST3\Signal Bench.vst3
-```
+Select Pink or White, enable Low Cut and/or High Cut, choose the required slope, and verify that the selected cutoff remains meaningful at the current sample rate. Remember that the Output Level control is a gain control, not a calibrated broadband RMS-output setting.
 
-The Windows installer is unsigned unless a separate signing workflow is used.
+## 3.18 Interpretation and cautions
 
-#### Linux package
+Signal Bench is deliberately transparent about what it does not do:
 
-Build Release targets first:
+- it does not calibrate dBFS to analog volts;
+- it does not automatically prevent clipping with a limiter;
+- it does not calculate the distortion products produced by a DUT;
+- its Guitar envelope and Pick Attack are deterministic measurement stimuli, not physical instrument models;
+- its output meters are indicators, not calibrated analysis channels;
+- a low broadband RMS value does not imply unused peak headroom.
 
-```sh
-./packaging/linux/build-package.sh
-```
-
-Expected output:
-
-```text
-dist/Signal-Bench-1.1.0-Linux-x86_64.tar.gz
-```
-
-After extracting:
-
-```sh
-./install.sh
-```
-
-Per-user installation paths:
-
-```text
-~/.local/bin/signal-bench
-~/.vst3/Signal Bench.vst3
-~/.local/share/applications/signal-bench.desktop
-~/.local/share/icons/hicolor/256x256/apps/signal-bench.png
-```
-
-Uninstall:
-
-```sh
-./uninstall.sh
-```
-
-The portable archive is not claimed to be binary-compatible with every Linux distribution.
-
-#### Source layout
-
-```text
-Source/
-  PinkNoise.h
-  BandwidthFilter.h
-  PluginProcessor.h
-  PluginProcessor.cpp
-  PluginEditor.h
-  PluginEditor.cpp
-  Assets/
-
-tests/
-  source regression checks
-  dual-sine preset math
-  slicer envelope math
-  harmonics math
-  guitar envelope math
-  Pick Attack math
-  bandwidth-filter regression tests
-
-packaging/macos/
-  macOS package resources and build script
-
-packaging/windows/
-  Inno Setup definition, icon and build script
-
-packaging/linux/
-  portable-package, install/uninstall and desktop-integration resources
-
-```
-
-#### Regression tests
-
-The project contains small source and mathematical regression checks for the deterministic DSP behavior.
-
-Current checks include:
-
-- expected parameter and UI wiring
-- E2-E5 preset range
-- 12-TET and Just interval math
-- Gate envelope behavior
-- Guitar envelope behavior
-- H2-H5 harmonic generation
-- Nyquist guard behavior
-- Pick Attack timing and deterministic reset behavior
-- Pick Attack LPF parameter wiring
-- current UI layout invariants
-
-The tests are not a substitute for native plug-in-host and installer validation.
-
-#### Limitations
-
-- Pink noise is generated with Stefan Stenzel's multirate **A New Shade of Pink** method. As with any finite-band digital generator, behavior is bounded by the host sample rate and the finite set of octave-spaced sources rather than being an analytical 1/f process extending to DC and infinity.
-- Output levels are not broadband RMS-calibrated.
-- The built-in meters are indicators rather than calibrated measurement instruments.
-- UI meter timing can visibly lead the physical audio output because of downstream buffering.
-- Harmonic enrichment is deliberately simple and deterministic; it is not a guitar-string model.
-- The Guitar envelope is a deterministic measurement envelope, not a physical string model.
-- Pick Attack is a deterministic filtered-noise excitation, not a physical pick/string/contact simulation.
-- Gate duty cycle is fixed at 50%.
-- Gate edge time is fixed at 12 ms.
-- Dual Sine can exceed full scale when multiple components are summed at high levels.
-- No automatic limiter is inserted.
-- Harmonics near Nyquist are omitted rather than oversampled.
-- The portable Linux archive depends on compatible runtime libraries and is not guaranteed to run on every distribution.
-- Public macOS and Windows distribution without warnings requires platform-appropriate signing; macOS public distribution additionally benefits from notarization.
-
-#### License
-
-MIT License. See [LICENSE](LICENSE).
-
-Copyright (c) 2026 Harri Saastamoinen
-
-## 3.3 Validation and release state
-
-Product: **Signal Bench**
-
-Versions: **macOS 2.0.0; Windows x64 / Linux x86_64 1.1.0**
-
-Signal Bench 2.0.0 is the current macOS release line. Windows x64 and Linux x86_64 remain at the validated 1.1.0 release. The 2.0.0 macOS work retains the established signal-generation/DSP behavior while updating the UI, meter presentation/ballistics, artwork and macOS packaging.
-
-#### Current feature set
-
-- Pink noise
-- White noise
-- Dual Sine
-- independent F1/F2 and Tone 1/Tone 2 levels
-- phase-continuous oscillators with 20 ms frequency smoothing
-- guitar Root + Interval presets from E2 through E5
-- 12-TET / Just tuning
-- optional H2-H5 harmonics with 1/n^2 amplitude
-- Nyquist guard at 0.48 × sample rate for harmonic enrichment
-- optional 0.2-5 Hz Slicer
-- Gate shape with 12 ms raised-cosine edges
-- deterministic Guitar envelope
-- adjustable Guitar slow decay
-- deterministic Pick Attack excitation
-- Pick Attack Level: -20 to 0 dB, default -4 dB
-- Pick Attack LPF: 500 Hz to 12 kHz, default 1800 Hz
-- Pink/White bandwidth filters
-- master Output Level and Mute
-- stereo peak metering
-- macOS 2.0.0: Matrix Bench-style horizontal meter presentation with dB scales
-- macOS 2.0.0: GUI-only fast attack / approximately 0.5 s meter release smoothing; no audio/DSP smoothing
-- macOS 2.0.0: compact UI layout and refreshed line-free spectrum icon
-- Standalone / AU / VST3 on macOS
-- Standalone / VST3 on Windows x64 and Linux x86_64
-
-#### Identity
-
-- Product name: `Signal Bench`
-- CMake/JUCE target: `SignalBench`
-- bundle ID: `works.60n.signalbench`
-- manufacturer code: `Sn60`
-- plug-in code: `SgB1`
-- product version: macOS `2.0.0`; Windows/Linux `1.1.0`
-
-Changing the product identity and plug-in code means hosts should treat Signal Bench as the new product rather than as an in-place update of Pink Noise Generator.
-
-#### Pink-noise validation
-
-Stefan Stenzel's 20-source **A New Shade of Pink** implementation has passed the deterministic long-record analysis on macOS. Across 44.1, 48, 96 and 192 kHz interpretations, measured 20 Hz to 20 kHz RMS spectral-shape error remained between 0.066 dB and 0.118 dB, with maximum 1/6-octave-bin error between 0.212 dB and 0.350 dB. The normalized output measured 0.195411 RMS (-14.18 dBFS) with 0.916451 peak magnitude. These measurements are now backed by explicit regression limits in `tools/analyze_pink_noise.py --check`.
-
-#### Measurement stimulus presets
-
-Signal Bench includes one-action presets for fast analyzer testing:
-
-- 100 Hz single tone
-- 1 kHz single tone
-- 10 kHz single tone
-- SMPTE-style 60 Hz + 7 kHz, 4:1 amplitude ratio
-- CCIF 19 kHz + 20 kHz, equal amplitude
-
-Loading a measurement preset establishes a clean deterministic stimulus by selecting Dual Sine, setting the required frequencies and relative tone levels, and disabling filters, slicer, added harmonics, and pick-attack shaping. Single-tone presets disable Tone 2; SMPTE and CCIF presets enable it. Master Output Level and Mute are preserved. Guitar interval presets enable Tone 2 automatically when loaded.
-
-#### Validation state
-
-The established 1.1.0 signal-generation baseline was validated natively on all three target platforms. macOS 2.0.0 retains that DSP baseline and has passed its final native build, installer and clean-install validation gate.
-
-##### macOS
-
-- clean native Release build passed
-- Standalone installed and tested
-- Audio Unit installed, validated with `auval`, and tested in Logic Pro
-- VST3 built and installed; vendor metadata verified
-- macOS 2.0.0 native Release build, installer payload, clean uninstall, installer-only fresh install, installed Standalone smoke test and final UI/function validation passed
-- measurement stimulus presets functionally tested
-- Pink-noise regression validation passed at 44.1, 48, 96, and 192 kHz
-
-##### Linux x86_64
-
-- Release build passed
-- four-rate Pink-noise regression passed
-- portable package built and tested
-- installed Standalone and VST3 tested
-- desktop integration validated
-
-##### Windows x64
-
-- Release build passed
-- installer built and tested
-- installed Standalone and VST3 smoke-tested
-
-#### Release policy
-
-macOS releases may advance independently when changes are macOS-specific; Windows and Linux remain at 1.1.0 until separately rebuilt and validated. Preserve native platform validation for release candidates that change DSP, product identity, packaging, or host-facing behavior. The macOS 2.0.0 release checkpoint passed clean installer-only installation and final functional validation.
-
-#### Future development
-
-##### Extended Output Level range / headroom study
-
-Investigate extending the master Output Level above the current 0 dB maximum, particularly to make broadband Pink and White noise more practical in setups that need additional test level. Before changing the limit, measure worst-case peak and RMS headroom across all generator modes and meaningful combinations, including two-tone summing, harmonics, Slicer/Guitar envelope, and Pick Attack.
-
-Any increase must preserve deterministic stimulus behavior and must not rely on a hidden limiter. If positive master gain is added, clipping prevention or indication must be explicit and technically defined.
+For measurements that depend on exact spectral interpretation, use Signal Bench as the known source and let Spectral Bench perform the calibrated analysis.
 
 # 4. Spectral Bench
 
