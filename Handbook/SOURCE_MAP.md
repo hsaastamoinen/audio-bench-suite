@@ -38,3 +38,6 @@ The MIDI Bench 2.0.0 command-file reference is taken from `midi-bench/README.md`
 
 ### Matrix Bench 2.1.1 consistency check
 Checked against `audio-matrix/README.md` and `audio-matrix/docs/LATENCY_TESTING.md`. Publication-sensitive points include per-output-device routing identity, the persistent launchd engine, unavailable-device name retention, 8x8 virtual-device channel use, virtual feedback rejection/recovery, independent-output clock handling, and persistent-client physical latency qualification across 16/32/64/128/256/512-frame buffers.
+
+### Signal Bench 2.0.0 consistency check
+Checked against `signal-bench/README.md` and `signal-bench/PROJECT_STATUS.md`. The handbook already reflects the source-backed macOS 2.0.0 release state, including the macOS 2.0.0 / Windows-Linux 1.1.0 version split, final installer-only clean-install qualification, Standalone/AU/VST3 validation, GUI-only meter ballistics, deterministic preset behavior, Pink-noise regression, and the 0.48 x sample-rate harmonic Nyquist guard. The published macOS version follows the qualified release documentation rather than the stale 1.1.0 CMake project-version field present in the source snapshot.
