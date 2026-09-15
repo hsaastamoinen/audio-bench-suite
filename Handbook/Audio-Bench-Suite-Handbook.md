@@ -8,6 +8,271 @@
 
 > This Markdown file is the maintainable source edition of the handbook. It documents the current macOS releases of the Audio Bench Suite. Windows and Linux are mentioned only where platform context is technically useful. A publication copy can later be generated as DOCX for manual screenshot placement and page layout, followed by final PDF production. Figure placeholders are intentional and are to be replaced with real screenshots, photographs, or manually prepared diagrams.
 
+## Table of contents
+
+- 1. Audio Bench Suite
+  - 1.1 Purpose and scope
+  - 1.2 Installation model
+  - 1.3 A practical way to choose the tool
+  - 1.4 Common setup principles
+  - 1.5 Reproducibility record
+- 2. Audio and measurement fundamentals
+  - 2.1 Digital level and dBFS
+  - 2.2 Headroom, clipping and gain staging
+  - 2.3 Sample rate, samples and time
+  - 2.4 Buffer size is not the same as latency
+  - 2.5 Frequency, bandwidth and spectral resolution
+  - 2.6 FFT windows, coherent gain and noise bandwidth
+  - 2.7 Frequency response, phase and polarity
+  - 2.8 Phase delay and group delay
+  - 2.9 Correlation and time-of-arrival estimation
+  - 2.10 Repeatability, accuracy and uncertainty
+  - 2.11 Baselines and reference paths
+  - 2.12 Physical paths, virtual paths and clock domains
+  - 2.13 A minimum pre-measurement check
+- 3. Signal Bench
+  - 3.1 Before generating a signal
+  - 3.2 Signal modes at a glance
+  - 3.3 Pink noise
+  - 3.4 White noise
+  - 3.5 Broadband bandwidth controls
+  - 3.6 Dual Sine
+  - 3.7 Single-tone, two-tone and IMD presets
+  - 3.8 Guitar-oriented interval presets
+  - 3.9 Harmonic enrichment
+  - 3.10 Slicer
+  - 3.11 Pick Attack
+  - 3.12 Signal flow
+  - 3.13 Output Level, Mute and metering
+  - 3.14 State persistence
+  - 3.15 macOS formats and installation
+  - 3.16 Validation status
+  - 3.17 Practical workflows
+  - 3.18 Interpretation and cautions
+- 4. Spectral Bench
+  - 4.1 General setup
+  - 4.2 Spectrum analyzer
+  - 4.3 FFT calibration and level semantics
+  - 4.4 FFT windows
+  - 4.5 Averaging, Peak Hold and trace presentation
+  - 4.6 Single-tone measurements
+  - 4.7 Harmonics and THD
+  - 4.8 THD+N
+  - 4.9 Fifteen-second single-tone statistics
+  - 4.10 CCIF / DFD-style 19 + 20 kHz measurement
+  - 4.11 SMPTE-style 60 Hz + 7 kHz measurement
+  - 4.12 Referenced frequency-response sweep
+  - 4.13 Transfer versus Actual response
+  - 4.14 Phase modes
+  - 4.15 Why phase and latency must not be confused
+  - 4.16 Saving a result
+  - 4.17 macOS formats and installation
+  - 4.18 Validation and qualification
+  - 4.19 Practical measurement workflows
+  - 4.20 Common interpretation errors
+- 5. Latency Bench
+  - 5.1 What Latency Bench measures
+  - 5.2 Wiring
+  - 5.3 Measurement workflow
+  - 5.4 Probe signal
+  - 5.5 Normalized cross-correlation
+  - 5.6 Correlation evidence and overlap weighting
+  - 5.7 Confidence and ambiguity rejection
+  - 5.8 Automatic extended analysis
+  - 5.9 Magnitude-matched extended probe
+  - 5.10 No arbitrary bandwidth limit
+  - 5.11 Polarity reversal
+  - 5.12 Baseline semantics
+  - 5.13 Complete-response timing versus transport latency
+  - 5.14 Reference physical measurements
+  - 5.15 Examples of correctly rejected measurements
+  - 5.16 Reading the result
+  - 5.17 Troubleshooting an ambiguous or weak measurement
+  - 5.18 Practical examples
+  - 5.19 Validation scope
+  - 5.20 Measurement record
+- 6. Matrix Bench
+  - 6.1 Architecture
+  - 6.2 Signal flow
+  - 6.3 Inputs
+  - 6.4 The crosspoint matrix
+  - 6.5 Main and Aux destinations
+  - 6.6 Output devices and channels
+  - 6.7 Independent output clocks and sample-rate conversion
+  - 6.8 The Matrix virtual audio device
+  - 6.9 macOS channel selection
+  - 6.10 Feedback prevention
+  - 6.11 Headless engine
+  - 6.12 Persistence
+  - 6.13 Snapshots
+  - 6.14 MIDI control
+  - 6.15 Main and Aux compressors
+  - 6.16 Gain-reduction metering
+  - 6.17 Metering
+  - 6.18 Buffer size
+  - 6.19 Buffer size versus physical latency
+  - 6.20 Physical loopback latency qualification
+  - 6.21 HAL callback qualification
+  - 6.22 Hot-plug and unavailable devices
+  - 6.23 Device-specific considerations
+  - 6.24 CLI control
+  - 6.25 Installation
+  - 6.26 Practical routing workflows
+  - 6.27 Troubleshooting
+  - 6.28 Validation scope
+  - 6.29 Measurement and routing record
+- 7. MIDI Bench
+  - 7.1 Typical uses
+  - 7.2 MIDI input monitoring
+  - 7.3 MIDI output monitoring
+  - 7.4 Monitor controls
+  - 7.5 MIDI channels
+  - 7.6 Manual sending
+  - 7.7 Control Change
+  - 7.8 Program Change
+  - 7.9 Run from file
+  - 7.10 Command-file syntax
+  - 7.11 Validation before execution
+  - 7.12 Editing command files
+  - 7.13 Looping
+  - 7.14 Persistence
+  - 7.15 Deterministic MIDI sender
+  - 7.16 Working with Matrix Bench
+  - 7.17 Working with audio measurements
+  - 7.18 Troubleshooting
+  - 7.19 Validation scope
+  - 7.20 Recording a MIDI test
+- 8. Cross-Bench measurement workflows
+  - 8.1 Start with the question
+  - 8.2 Establish the common test conditions
+  - 8.3 Signal Bench + Spectral Bench: level and spectrum
+  - 8.4 Signal Bench + Spectral Bench: single-tone distortion
+  - 8.5 Signal Bench + Spectral Bench: intermodulation
+  - 8.6 Referenced DUT frequency response
+  - 8.7 Phase comparison
+  - 8.8 Spectral Bench + Latency Bench: separate phase from physical latency
+  - 8.9 Filter and crossover characterization
+  - 8.10 Strongly bandwidth-limited and subwoofer outputs
+  - 8.11 Effects-loop latency
+  - 8.12 DSP-block latency
+  - 8.13 Matrix Bench as the routing layer
+  - 8.14 Matrix Bench virtual routing
+  - 8.15 Matrix snapshots for repeatable A/B routing
+  - 8.16 MIDI Bench for deterministic DUT states
+  - 8.17 MIDI-controlled Spectral Bench comparison
+  - 8.18 MIDI-controlled latency comparison
+  - 8.19 Sample-rate and clock-domain discipline
+  - 8.20 Buffer-size experiments
+  - 8.21 Bluetooth and wireless monitoring
+  - 8.22 Repeating a difficult measurement
+  - 8.23 Saving a complete measurement set
+  - 8.24 Minimum publication record
+  - 8.25 Choosing the authoritative Bench
+- 9. Validation and qualification philosophy
+  - 9.1 Validation, qualification and measurement confidence
+  - 9.2 Synthetic and known-answer tests
+  - 9.3 Physical qualification
+  - 9.4 Reference paths
+  - 9.5 Reference -> DUT -> reference
+  - 9.6 Repeatability is not accuracy
+  - 9.7 Regression testing
+  - 9.8 Acceptance and rejection
+  - 9.9 Signal Bench validation
+  - 9.10 Spectral Bench validation
+  - 9.11 Spectral phase qualification
+  - 9.12 Latency Bench validation
+  - 9.13 Latency Bench difficult-path qualification
+  - 9.14 Matrix Bench validation layers
+  - 9.15 Matrix device coverage
+  - 9.16 MIDI Bench validation
+  - 9.17 Sample-rate coverage
+  - 9.18 Buffer-size coverage
+  - 9.19 Installed-artifact qualification
+  - 9.20 What validation proves
+  - 9.21 What validation does not prove
+  - 9.22 Validation matrix
+  - 9.23 Adding a new validation case
+  - 9.24 Publication discipline
+- 10. Troubleshooting and measurement pitfalls
+  - 10.1 No signal
+  - 10.2 Implausibly low level
+  - 10.3 Clipping
+  - 10.4 Noise floor is unexpectedly high
+  - 10.5 Wrong frequency or missing high-frequency content
+  - 10.6 Sample-rate mismatch
+  - 10.7 Buffer size did not produce the expected latency
+  - 10.8 Bluetooth feels late
+  - 10.9 Spectral trace looks unstable
+  - 10.10 A spectral peak is not at the expected level
+  - 10.11 THD looks wrong
+  - 10.12 THD+N looks wrong
+  - 10.13 IM products appear to be missing
+  - 10.14 Referenced sweep is not flat in direct loopback
+  - 10.15 Raw phase has a large slope
+  - 10.16 Auto and Latency Bench disagree
+  - 10.17 Polarity is reversed
+  - 10.18 Latency result is unexpectedly large after filtering
+  - 10.19 Latency result is rejected as ambiguous
+  - 10.20 Extended latency analysis was used
+  - 10.21 Baseline is stale
+  - 10.22 Latency varies between runs
+  - 10.23 Matrix device is selected but there is no audio
+  - 10.24 Matrix route changed after a device swap
+  - 10.25 Matrix device disappeared
+  - 10.26 Matrix audio stops when the GUI closes
+  - 10.27 Matrix GUI cannot reach the engine
+  - 10.28 Virtual Matrix route has unexpected channels
+  - 10.29 Virtual routing creates feedback
+  - 10.30 Independent Matrix outputs drift or behave differently
+  - 10.31 Matrix snapshot recall sounds wrong
+  - 10.32 Matrix compressor changes a measurement
+  - 10.33 MIDI Bench shows no incoming messages
+  - 10.34 MIDI target does not respond
+  - 10.35 Program number appears off by one
+  - 10.36 Command-file Run is disabled
+  - 10.37 MIDI loop changes the DUT too quickly
+  - 10.38 MIDI state and audio state do not line up in time
+  - 10.39 Signal Bench output is unexpectedly quiet
+  - 10.40 Pink-noise mean is not exactly zero
+  - 10.41 A result changed after reopening an application
+  - 10.42 A result is too perfect
+  - 10.43 Two tools give different numbers
+  - 10.44 After a surprising result
+  - 10.45 When to stop troubleshooting
+- 11. Technical and publication appendix
+  - 11.1 Units and conventions
+  - 11.2 Core terminology
+  - 11.3 Current macOS handbook versions
+  - 11.4 macOS suite location
+  - 11.5 Signal Bench quick reference
+  - 11.6 Spectral Bench quick reference
+  - 11.7 Latency Bench quick reference
+  - 11.8 Matrix Bench quick reference
+  - 11.9 MIDI Bench quick reference
+  - 11.10 Cross-Bench quantity ownership
+  - 11.11 Latency interpretation reference
+  - 11.12 Phase-reference summary
+  - 11.13 Distortion-reference summary
+  - 11.14 Matrix routing record
+  - 11.15 Measurement record template
+  - 11.16 MIDI test record
+  - 11.17 Saved-result file discipline
+  - 11.18 Figure placeholder specification
+  - 11.19 Screenshot preparation
+  - 11.20 Diagram preparation
+  - 11.21 Captions and cross-references
+  - 11.22 Tables
+  - 11.23 Code and command blocks
+  - 11.24 Source hierarchy
+  - 11.25 Source-map policy
+  - 11.26 Roadmaps and historical material
+  - 11.27 Version-specific statements
+  - 11.28 macOS-first publication scope
+  - 11.29 Credits and attribution
+  - 11.30 Pre-publication technical checklist
+  - 11.31 Publication workflow
+  - 11.32 Final publication gate
+
 ## How to use this handbook
 
 The handbook is deliberately layered. If the immediate goal is to make a measurement or use an application, go directly to the relevant Bench chapter. For interpretation, uncertainty, validation and implementation detail, continue into the measurement fundamentals, workflow, validation and technical-reference chapters.

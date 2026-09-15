@@ -50,3 +50,6 @@ Checked against `latency-bench/README.md`, `latency-bench/docs/MEASUREMENT_GUIDE
 
 ### Global publication consistency check
 Completed after the five application-specific source reconciliations. The canonical Markdown is macOS-first, uses plain Markdown rather than LaTeX inline delimiters, avoids em-dash typography in publication prose, retains application-specific validation terminology, and preserves the chapter-numbered figure-placeholder scheme for the separate screenshot/figure production list. Version-sensitive technical claims remain governed by the application consistency checks above.
+
+### Table of contents
+Added a publication-oriented table of contents generated from all numbered chapter and second-level section headings. Front-matter helper sections remain outside the numbered TOC. The later DOCX publication copy should use Word heading styles so its page-numbered TOC can be generated or refreshed natively after screenshots and final pagination are in place.
