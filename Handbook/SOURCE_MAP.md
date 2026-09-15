@@ -41,3 +41,6 @@ Checked against `audio-matrix/README.md` and `audio-matrix/docs/LATENCY_TESTING.
 
 ### Signal Bench 2.0.0 consistency check
 Checked against `signal-bench/README.md` and `signal-bench/PROJECT_STATUS.md`. The handbook already reflects the source-backed macOS 2.0.0 release state, including the macOS 2.0.0 / Windows-Linux 1.1.0 version split, final installer-only clean-install qualification, Standalone/AU/VST3 validation, GUI-only meter ballistics, deterministic preset behavior, Pink-noise regression, and the 0.48 x sample-rate harmonic Nyquist guard. The published macOS version follows the qualified release documentation rather than the stale 1.1.0 CMake project-version field present in the source snapshot.
+
+### Spectral Bench 2.1.0 consistency check
+Checked against `spectral-bench/README.md`, `spectral-bench/docs/MEASUREMENT_GUIDE.md`, `spectral-bench/docs/MEASUREMENTS.md`, `spectral-bench/docs/VALIDATION.md`, and `spectral-bench/docs/ARCHITECTURE.md`. Publication-sensitive points include the fixed two-channel referenced sweep topology, DUT-channel role swapping, Transfer versus Actual semantics, Raw/Auto/Manual/Baseline phase interpretation, PNG/CSV/TXT Save Result behavior, export identity terminology, the 20/20 automated suite, and physical sweep/phase qualification.

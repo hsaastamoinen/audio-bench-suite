@@ -783,18 +783,18 @@ Signal Bench includes matching SMPTE-style and CCIF presets, reducing the chance
 
 ## 4.12 Referenced frequency-response sweep
 
-macOS 2.1.0 adds automated sweep measurement with a DUT path and an optional reference path.
+macOS 2.1.0 adds an automated logarithmic sine sweep using a fixed two-channel referenced topology. Select **DUT ch 1** or **DUT ch 2**: that channel is the DUT output/input path and the other channel automatically becomes the direct reference path. Both outputs receive the same sample-synchronous deterministic sweep. There is no separate reference-channel selector.
 
-For a referenced transfer measurement, wire the generator to both the DUT and reference paths so that the analyzer captures the DUT response and the reference response during the same measurement. The reported transfer magnitude is based on the relationship between those paths rather than on the absolute DUT capture alone.
+For a referenced transfer measurement, loop the reference channel directly back and route the selected DUT channel through the device under test. Transfer magnitude is calculated as DUT/Reference, so response common to both paths cancels.
 
-A direct dual-channel loopback is the best first qualification step. It exposes channel mismatch and confirms that the reference path is wired and selected correctly before a DUT is introduced.
+A direct dual-channel loopback is the best first qualification step. It exposes physical channel/path mismatch and confirms the two-channel topology before a DUT is introduced. Swapping DUT channel swaps both output and input roles.
 
-Use **Transfer** when the question is the DUT response relative to a reference. Use **Actual** when the absolute captured response is the quantity of interest.
+Use **Transfer** when the question is the DUT response relative to the simultaneous reference. Use **Actual** when the absolute captured DUT response is the quantity of interest.
 
 <!-- FIGURE PLACEHOLDER: Figure 4.3
 Application: Spectral Bench
 Subject: Referenced sweep setup
-Show: Sweep controls, DUT input/output selections, Reference input/path, Transfer result and phase controls.
+Show: Sweep controls, DUT ch selector, two-channel DUT/reference wiring state, Transfer result and phase controls.
 Crop: Application window only.
 Suggested size: full text width
 Caption: Spectral Bench configured for a referenced DUT transfer sweep.
