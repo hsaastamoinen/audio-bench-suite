@@ -919,874 +919,360 @@ When the result matters, save it together with enough setup information to recon
 
 # 5. Latency Bench
 
-Latency Bench measures relative physical-path/DUT timing with simultaneous reference and DUT paths.
+Latency Bench 1.1.1 for macOS measures **physical-path latency** through an audio device or DUT by comparing a direct reference path with a second path through the DUT. It is designed for measurements where cable, converter, analog, digital and processing delays are part of the real signal path.
 
+The application generates its own deterministic broadband probe, captures the reference and DUT responses, estimates their relative timing by normalized cross-correlation and reports the DUT path relative to a stored baseline.
 
 <!-- FIGURE PLACEHOLDER: Figure 5.1
 Application: Latency Bench
-Subject: Main window configured for DUT measurement
-Show: Audio device, Reference OUT/IN, DUT OUT/IN, baseline state, measurement controls and result area.
+Subject: Main application window
+Show: selected audio device, Reference OUT/IN, DUT OUT/IN, baseline status, probe level and measurement controls.
+Crop: Application window only.
 Suggested size: full text width
-Caption: Latency Bench configured for a physical-path DUT latency measurement.
+Caption: Latency Bench 1.1.1 configured for a physical-path DUT measurement.
 -->
 
-**Figure 5.1.** Latency Bench configured for a physical-path DUT latency measurement.
+**Figure 5.1.** Latency Bench 1.1.1 configured for a physical-path DUT measurement.
 
+## 5.1 What Latency Bench measures
 
-## 5.1 User and measurement guide
-
-This guide is the practical operating procedure for 60°N Latency Bench. For the estimator theory and limitations, see `MEASUREMENT_METHOD.md`. For the physical release-validation data, see `REFERENCE_MEASUREMENTS.md`.
-
-#### What Latency Bench measures
-
-Latency Bench measures the extra physical-path delay of a DUT relative to a simultaneous direct reference path. It does not use the audio driver's reported latency as the result.
-
-Use one multichannel interface for both paths:
+Latency Bench measures the timing difference between two simultaneously defined physical paths:
 
 ```text
-Reference: Interface OUT A -> Interface IN A
-DUT:       Interface OUT B -> DUT -> Interface IN B
+Reference OUT A -> direct reference path -> Reference IN A
+
+DUT OUT B       -> device under test      -> DUT IN B
 ```
 
-The same deterministic broadband probe is sent to both outputs. The two returns are captured together, and normalized cross-correlation estimates their relative delay. A direct-loop baseline removes the fixed difference between the two interface channels and cables.
+The baseline characterizes the difference between the two measurement loops without the DUT contribution. A later DUT measurement subtracts that baseline from the measured reference-to-DUT offset.
 
-#### Recommended starting setup
+This makes the result a physical-path measurement rather than a calculation from driver buffer settings.
 
-- Use two output and two input channels from the same interface and, where practical, the same converter families.
-- Start with the default probe level of -30 dBFS.
-- Aim for healthy received peaks, roughly -40 to -20 dBFS. Matching amplitudes are not required.
-- Disable software loopback and any monitoring route that feeds a measurement input back to a measurement output.
-- Keep sample rate, buffer size, channel selection, interface mixer routing and gains unchanged between baseline and DUT measurements.
+Depending on the DUT, the reported timing can include:
 
-At 48 kHz, one sample is about 0.020833 ms and 48 samples are exactly 1 ms.
+- interface output and input conversion;
+- analog circuitry;
+- DSP transport;
+- internal buffering;
+- effects-loop paths;
+- sample-rate conversion;
+- filter phase/group delay;
+- any other delay that changes the captured response relative to the reference.
 
-#### 1. Configure the audio interface
+That last point is important. Latency Bench measures the timing of the **captured response**. With a strongly bandwidth-limited or phase-shifting DUT, that is not necessarily identical to bare digital transport latency.
 
-Open **Options...** and select the measurement interface, sample rate, buffer size and active physical I/O channels. Then select the Reference out, DUT out, Reference in and DUT in channels in the main window.
+## 5.2 Wiring
 
-Latency Bench persists the selected device and channels. It does not silently switch to the current macOS default device if the saved interface is unavailable.
-
-#### 2. Measure the baseline
-
-Wire both paths directly:
+For the baseline, make both paths as equivalent as practical:
 
 ```text
-OUT A -> IN A
-OUT B -> IN B
+OUT A -> cable -> IN A
+OUT B -> cable -> IN B
 ```
 
-Click **Measure baseline**. A successful baseline is stored together with the exact device, sample rate, buffer size and four selected channels.
-
-The baseline represents only the fixed differential offset between the two measurement paths. It is not DUT latency. Changing the relevant audio setup invalidates the stored baseline automatically.
-
-#### 3. Insert and measure the DUT
-
-Leave the reference path unchanged and insert the DUT only in the DUT path:
+For the DUT measurement, leave the reference path intact and insert the DUT into path B:
 
 ```text
-OUT A -> IN A
-OUT B -> DUT IN -> DUT OUT -> IN B
+OUT A -> cable -> IN A
+OUT B -> DUT   -> IN B
 ```
 
-Click **Measure DUT**. Latency Bench performs ten consecutive runs and reports median, mean, minimum, maximum, standard deviation, correlation and received levels for every run.
-
-Use the **median** as the primary scalar result. The distribution of all ten runs is important when a DUT has multiple internal timing states or produces an ambiguous correlation shape.
-
-#### Cancelling a measurement
-
-**Cancel** is available while either a baseline measurement or a DUT series is running. Cancelling stops the current probe/capture, discards the partial capture and any partial DUT-series results, and returns the application to idle. It does **not** erase a previously valid stored baseline.
-
-This is also the recovery action if a measurement is waiting because the expected audio callbacks or physical return are not arriving. After correcting the device, routing or cabling, the measurement can be started again normally.
-
-#### Reading the result
-
-The corrected latency is:
-
-```text
-corrected samples = raw DUT/reference offset - stored baseline offset
-milliseconds      = 1000 * corrected samples / sample rate
-```
-
-Fractional-sample values come from interpolation around the correlation peak. They are useful for repeatability and comparison, but they should not be interpreted as universally exact physical timing when the DUT strongly changes bandwidth, phase, waveform or internal timing.
-
-##### Correlation
-
-Correlation describes how strongly the captured DUT waveform matches a delayed version of the reference waveform. A simple transparent path can correlate very strongly. Distortion, filtering, modulation and other processing can lower the value without automatically invalidating a stable latency result.
-
-Judge correlation together with repeatability, the ten-run distribution and the DUT's processing.
-
-##### Bandwidth-limited and subwoofer outputs
-
-There is **no fixed minimum LF, maximum HF, absolute-bandwidth, or octave-span requirement**. A DUT may legitimately be a subwoofer output, crossover branch, cabinet/EQ path, or another strongly bandwidth-limited transfer function. Do not bypass intended filtering merely to make the signal more broadband.
-
-Latency Bench first uses the normal fast broadband analysis. If that run fails specifically because timing evidence is weak or because another lag is too competitive, the application automatically retries with **extended analysis**. The retry uses a longer probe and correlation window and spectrally matches the captured reference magnitude to the DUT before correlation. DUT phase is preserved. Silence, clipping, routing, and other non-timing failures are not hidden by this retry.
-
-The report shows `extended` on an individual run and `Extended-analysis runs: N/10 runs` in the DUT-series summary. The main-window subtitle, `extended analysis when needed`, refers to this automatic retry; there is no separate mode to select.
-
-Low-frequency paths particularly benefit from longer observation because their cycles are long. Even then, no algorithm can manufacture a unique delay from a signal that contains genuinely competing timing interpretations. If the extended analysis still has insufficient primary evidence, Latency Bench reports **`Timing evidence too weak for a reliable result.`** If a separate candidate reaches the competing-evidence limit, it reports **`Competing timing peaks make the result ambiguous.`** In either case, the diagnostic candidate values are shown but are **not valid latency results**.
-
-Physical v1.1.1 qualification at 48 kHz includes a realistic **20–160 Hz** subwoofer-style path. With the same wideband path measuring **89.15 samples / 1.857 ms bypassed**, the 20–160 Hz path measured **383.20 / 7.983 ms at 24 dB/oct** and **493.18 / 10.275 ms at 48 dB/oct**, with all 10 runs using extended analysis and standard deviations of only 0.005 and 0.006 samples respectively. This demonstrates why a blanket kHz-bandwidth requirement would be wrong.
-
-For strongly filtered paths, the reported latency describes the timing of the **complete filtered response**. It includes the underlying transport latency plus the filter's phase/group-delay contribution. For example, the 48 dB/oct 20–160 Hz result above is not evidence of 10.275 ms of bare DSP transport latency; relative to the 1.857 ms bypass path, about 8.417 ms of additional timing displacement is associated with the complete filtered transfer function. For loudspeaker/subwoofer alignment, that complete-response timing may be exactly the useful quantity.
-
-##### NEAR-EQUAL alternative peak
-
-Some processed signals produce more than one plausible correlation maximum. The report retains the historical `NEAR-EQUAL` diagnostic at 99% of the selected peak's lag-selection evidence. In v1.1.1, however, the validity policy is stricter: a run is rejected as ambiguous when the strongest separate candidate reaches **90%** of the primary evidence. A valid v1.1.1 run therefore will not normally reach the 99% `NEAR-EQUAL` marker.
-
-Latency Bench deliberately does not force the earlier or later candidate. A rejected ambiguity report shows both candidates as diagnostics instead of hiding the uncertainty or guessing which delay the user expected.
-
-#### Polarity inversion
-
-A polarity-inverting DUT can still be measured. Latency Bench selects delay using the **absolute magnitude** of normalized correlation, so reversing polarity changes the sign of the correlation but should not by itself change the measured delay.
-
-#### Analog and digital paths
-
-The reported result is the latency of the complete physical DUT path inserted between the selected output and input. That can include DSP block latency, converters, digital routing, analog effects loops, external converters and any other processing in that path.
-
-For example, an analog loop inside an otherwise digital device may add a measurable D/A -> analog path -> A/D delay. Measure configurations separately if the goal is to determine the increment contributed by a particular block or loop.
-
-#### Comparing configurations
-
-For A/B latency comparisons:
-
-1. Keep the same valid baseline and measurement-interface configuration.
-2. Measure configuration A and save the report.
-3. Change only the DUT state being investigated.
-4. Measure configuration B.
-5. Compare the medians, while also checking standard deviation and individual runs.
-
-If the interface configuration or measurement routing changes, repeat the baseline first.
-
-#### Troubleshooting
-
-If no valid result is obtained, check the physical returns and received peak levels first. Make sure the selected physical channels are active, software loopback is disabled, and no feedback route exists in the interface mixer.
-
-A very low level can make correlation unreliable; clipping can also invalidate the capture. Strong time-varying or nonlinear processing may legitimately produce lower or ambiguous correlation. Bypass processing progressively when diagnosing such a path.
-
-If the measurement does not progress, use **Cancel**, correct the audio-device/routing condition, and run it again.
-
-#### RME TotalMix
-
-With RME interfaces, the Hardware Input fader controls monitoring/routing into a hardware-output submix; it does not set the CoreAudio ADC level received by Latency Bench. Do not raise a Hardware Input fader into a measurement output merely to increase the application's input level, because that can create feedback.
-
-For the validated Babyface Pro workflow, route Software Playback normally to the selected physical outputs, keep Hardware Input monitoring to those outputs off, keep TotalMix Loopback off, and set ADC/input level using the actual input gain/reference-level controls.
-
-#### Saving results
-
-After a completed DUT series, use **Save As...** to store the complete text report. Keep the report when comparing DUT configurations: the individual runs, correlation values, levels and ambiguity flags are useful evidence beyond the headline median.
-
-## 5.2 Measurement method
-
-#### Scope
-
-Latency Bench measures differential **physical-path latency** between a direct reference loop and an arbitrary DUT loop. It is intended for real analog I/O measurements, including converters and DSP devices, rather than merely reporting host or driver buffer settings.
-
-#### Physical topology
-
-The same multichannel measurement interface drives both paths from the same callback:
-
-```text
-Reference: OUT A -> IN A
-DUT:       OUT B -> DUT -> IN B
-```
-
-For baseline calibration the DUT path is replaced by a second direct loop:
-
-```text
-OUT A -> IN A
-OUT B -> IN B
-```
-
-Equivalent output/input channels from the same converter families are preferred. Baseline calibration removes the fixed differential offset of the complete measurement hardware and cabling.
-
-#### Common-mode cancellation
-
-The two captured channels share the same interface, converter clock, and host callback stream. The following are therefore common to both paths and largely cancel from the relative result:
-
-- application scheduling before the output callback,
-- CoreAudio output buffering common to both channels,
-- interface USB/Thunderbolt transport common to the channels,
-- input callback timing,
-- host-side capture buffering.
-
-The direct reference path still contains its own D/A conversion, analog cable, and A/D conversion. Latency Bench measures the DUT path relative to that reference and then removes the measured baseline mismatch between the two interface paths.
-
-#### Baseline and corrected result
-
-Let the direct-loop baseline offset be `B` samples and the raw DUT/reference offset be `R` samples.
-
-```text
-L = R - B
-L_ms = 1000 * L / sample_rate
-```
-
-A baseline is valid only for the same audio device, sample rate, buffer size, reference output, DUT output, reference input, and DUT input. Latency Bench persists a successful baseline but restores it only when that setup still matches. A setup change invalidates it.
-
-#### Probe and correlation
-
-Latency Bench emits the same deterministic pseudo-random bipolar broadband burst on both outputs. The default amplitude is -30 dBFS.
-
-The received reference and DUT signals are compared by normalized cross-correlation over the supported lag range. Absolute correlation magnitude is used so a polarity-inverting DUT can still be measured. A three-point parabolic interpolation around the selected correlation maximum provides a fractional-sample estimate.
-
-The full lag range is searched. For performance, each candidate lag is evaluated over the known probe-bearing reference window rather than over the entire capture buffer. This avoids long UI stalls during ten-run series without narrowing the allowed latency search.
-
-The integer sample offset is the fundamental observable. Fractional-sample interpolation improves repeatability and comparison, but should not be over-interpreted when the DUT has unusual bandwidth, phase response, modulation, nonlinear processing, or multiple internal timing states.
-
-#### Repeated DUT measurements
-
-A DUT measurement consists of ten consecutive runs. The report contains:
-
-- median,
-- mean,
-- minimum and maximum,
-- standard deviation,
-- each individual latency result,
-- correlation for each run,
-- reference and DUT capture peaks.
-
-Median is the primary summary statistic because it is robust to occasional alternate states or estimator selections. Mean and standard deviation are retained because they expose instability rather than hiding it.
-
-A low correlation value does not by itself mean the latency result is invalid. Strong nonlinear or frequency/phase-altering processing can make the DUT waveform substantially different from the direct reference while still producing a stable delay estimate. Run-to-run clustering and the complete report should be considered together.
-
-#### Levels
-
-The default probe level is -30 dBFS. Practical received peaks are roughly -40...-20 dBFS. Exact amplitudes do not need to match because normalized correlation is used.
-
-Latency Bench rejects captures that are effectively silent or too close to clipping. External analog gains and hardware mixer routing are not controlled by the application.
-
-#### RME TotalMix note
-
-When using an RME interface, a Hardware Input fader controls monitoring/routing to the currently selected hardware output. It does not set the CoreAudio ADC level received by Latency Bench. Raising a Hardware Input fader into the measurement output submix can therefore create feedback without improving the captured input level.
-
-For the validated Babyface Pro setup:
-
-- route Software Playback channels to the intended physical measurement outputs,
-- keep Hardware Input monitoring to those measurement outputs off,
-- keep TotalMix Loopback off,
-- set ADC/input level with the actual input gain/reference-level controls,
-- do not change TotalMix routing or gains between baseline and DUT runs.
-
-#### Cancellation semantics
-
-A running baseline or DUT measurement can be cancelled explicitly. Cancellation returns the engine to idle, stops probe emission, and discards the partial capture. Cancelling a DUT series also discards any runs accumulated by that incomplete series. A previously valid stored baseline is left unchanged. The next measurement starts with freshly cleared capture buffers.
-
-This is a control/recovery operation only; cancellation does not produce or save a partial latency result.
-
-#### Known limitations and interpretation
-
-Latency Bench reports a scalar relative delay. Some DUTs do not have one perfectly invariant latency:
-
-- modulation and time-varying effects can change the waveform from run to run,
-- reverbs and delays can produce several correlation features,
-- aggressive nonlinear processing can reduce correlation,
-- frequency-dependent group delay can make latency signal-dependent,
-- internally block-scheduled DSP/converter systems can potentially expose discrete timing states.
-
-The validated Quad Cortex reference series contains examples where simple paths repeat to approximately 0.001 sample standard deviation, while more complex active-DSP paths occasionally form a second cluster roughly five samples above the main cluster. The observation is retained in the documentation without attributing the cause to the DUT or estimator.
-
-See `REFERENCE_MEASUREMENTS.md` for the complete authoritative reports.
-
-#### Correlation ambiguity reporting
-
-Latency Bench also characterizes the strongest separate local correlation maximum. Adjacent integer samples around the selected maximum are treated as the same interpolation lobe and are excluded from this search.
-
-The alternative peak does **not** replace the selected peak automatically. The report gives its corrected latency, signed separation from the selected result, ordinary normalized-correlation magnitude, selection-evidence score, and evidence strength relative to the selected peak.
-
-The historical `NEAR-EQUAL` marker remains defined at 99% of primary selection evidence. Starting with v1.1.1, validity is deliberately stricter: a separate candidate at **90% or more** of primary evidence rejects the run as ambiguous. Consequently, a valid v1.1.1 DUT series will not normally contain a `NEAR-EQUAL` run; the marker remains useful for historical reports and diagnostics.
-
-This deliberately avoids a DUT-specific rule such as "always choose the earlier peak." A strongly processed waveform can legitimately contain more than one strong correlation candidate, and the measurement itself may not establish which candidate corresponds to the most useful physical interpretation. In that case v1.1.1 rejects the run rather than silently choosing the expected, earlier, or later delay.
-
-During Quad Cortex qualification, the active four-block chain consistently produced simultaneous peaks near 174.7 and 179.8 samples, separated by about 5.1 samples. Either peak could become the numerically strongest one by a very small correlation margin. This demonstrated estimator ambiguity rather than evidence, by itself, of the DUT switching between two exclusive latency states.
-#### Quad Cortex validation example
-
-The v1.0.0 physical validation used these Quad Cortex blocks as the concrete processed-DUT example:
-
-```text
-Jewel Comp -> Analog FX Loop -> Brit 2203 Amp -> Analog Delay -> Brit 412 GB Cab
-```
-
-The active four-block measurement used Jewel Comp, Brit 2203 Amp, Analog Delay, and Brit 412 GB Cab. The final validation case additionally inserted the physical Analog FX Loop after Jewel Comp, adding the Quad Cortex D/A -> analog patch cable -> A/D path. These block names describe the validation setup only; the Latency Bench measurement method itself remains DUT-agnostic.
-
-
-#### Candidate evidence and bandwidth-limited DUTs
-
-Candidate lags can have different valid overlap lengths near capture boundaries.
-Raw normalized-correlation coefficients are not equally persuasive when they
-are estimated from very different sample counts. Peak selection therefore uses
-an evidence score:
-
-`abs(correlation) * sqrt(actual overlap / nominal correlation window)`
-
-The nominal window is 4096 samples. Full-window candidates are unchanged.
-Short-overlap edge candidates are down-weighted according to their reduced
-statistical evidence. This does not prefer positive latency, impose an expected
-latency, or reduce the signed search range.
-
-The displayed primary `corr` value remains the ordinary absolute normalized
-correlation coefficient at the selected lag. Candidate selection and displayed
-correlation therefore have deliberately different roles.
-
-A strongly bandwidth-limited DUT can produce deterministic nearby correlation
-lobes. Such alternatives are not automatically errors: they can reflect the
-DUT transfer function itself. Repeatability, alternative-peak strength and
-physical plausibility should be considered together. If the remaining signal
-does not contain enough timing information for a defensible estimate, the
-measurement should be treated as ambiguous rather than forcing an expected
-latency.
-
-
-#### Confidence diagnostics
-
-A rejected run retains and reports the selected candidate lag, raw correlation, overlap-aware selection evidence, and strongest separate alternative. This is diagnostic information, not a valid latency result. It distinguishes weak absolute timing evidence from genuinely competing lag interpretations.
-
-
-#### Confidence policy after physical bandwidth qualification
-
-Physical qualification showed that a fixed raw normalized-correlation cutoff is
-not a valid general reliability criterion. A 1 kHz / 48 dB/oct HPF produced a
-stable selected candidate at 133.60 samples with raw correlation 0.1856 and
-selection evidence 0.1856; its strongest separate candidate had only 51.2% of
-the primary evidence. Rejecting that run solely because `corr < 0.20` discarded
-useful deterministic timing information.
-
-Validity therefore uses the same overlap-aware evidence used for lag selection:
-
-- primary selection evidence must be at least 0.10;
-- the strongest separate candidate must remain below 90% of the primary
-  selection evidence.
-
-The 0.10 evidence floor is intentionally conservative for the nominal
-4096-sample correlation window, while no longer assuming that spectral
-colouration must preserve a raw correlation of 0.20. The 90% competing-evidence
-limit preserves the physically validated 300–3400 Hz / 24 dB/oct case, whose
-deterministic nearby lobe was about 83.3%, while rejecting cases with genuinely
-competing timing interpretations.
-
-The existing `NEAR-EQUAL` diagnostic remains at 99% for reporting, but such a
-case is already invalid under the stricter 90% validity rule.
-
-
-#### Automatic extended analysis for bandwidth-limited DUTs
-
-The normal measurement uses a 2048-sample probe and a 4096-sample correlation window. This is fast and has been physically qualified across broadband, LPF, HPF, band-pass and EQ-shaped paths.
-
-A legitimate LF-only DUT can require a longer observation time. Physical qualification with a 20–160 Hz, 48 dB/oct band-pass demonstrated this limit directly: the normal capture produced only 0.0696 primary evidence, with a 99.1% competing candidate. The result was correctly rejected, but the DUT bandwidth itself is realistic for a subwoofer output.
-
-For a DUT run that fails specifically because timing evidence is weak or competing, Latency Bench therefore retries that run automatically with an 8192-sample probe and a 12288-sample correlation window. During that retry, the captured reference is magnitude-matched to the DUT spectrum before correlation; DUT phase is not altered. Level, clipping and routing failures are not retried. The signed lag search range and confidence policy are unchanged.
-
-This is deliberately evidence-driven rather than based on fixed LF/HF bandwidth limits. There is no universal frequency-span rule that guarantees unique time-delay estimation: filter phase, group delay, spectral weighting and observation duration all matter. If the extended capture still cannot establish a unique timing interpretation, the result remains rejected rather than being forced.
-
-Physical 20–160 Hz qualification at 48 kHz demonstrated the completed fallback:
-
-- bypassed path: 89.15 samples / 1.857 ms, normal analysis, 0/10 extended runs;
-- 20–160 Hz, 24 dB/oct HPF+LPF: 383.20 / 7.983 ms, 10/10 extended, standard deviation 0.005 samples, primary correlation/evidence about 0.853 and strongest alternative about 66.4%;
-- 20–160 Hz, 48 dB/oct HPF+LPF: 493.18 / 10.275 ms, 10/10 extended, standard deviation 0.006 samples, primary correlation/evidence about 0.798 and strongest alternative 78.0%.
-
-Before spectral matching, the same 20–160 Hz / 48 dB/oct path was correctly rejected: primary evidence was only 0.0662. Its positive alternative was about 492.12 samples, within about 1.1 samples of the final qualified 493.18-sample solution. The slope-dependent 24/48 dB/oct results and immediate return to the 89.15-sample bypass result provide a physical sanity check that the extended solution follows the filtered transfer function rather than an arbitrary remote correlation lobe.
-
-Additional physical boundary tests exercised the same policy without an expected-latency bias:
-
-- broadband/bypassed path: 89.15 samples / 1.857 ms, normal analysis;
-- 2 kHz HPF, 48 dB/oct: 90.91 / 1.894 ms, stable, strongest alternative 77.0%;
-- 2–4 kHz band-pass, 48+48 dB/oct: 114.05 / 2.376 ms, stable, strongest alternative 81.5%;
-- 2–3 kHz band-pass: rejected as ambiguous at 91.6% competing evidence;
-- 100–500 Hz band-pass: rejected as ambiguous at 92.4% competing evidence;
-- 20–160 Hz, 24 dB/oct: 383.20 / 7.983 ms after extended analysis;
-- 20–160 Hz, 48 dB/oct: 493.18 / 10.275 ms after extended analysis.
-
-These cases demonstrate that neither octave span nor absolute bandwidth alone defines measurability. The estimator's evidence and competition tests are the operative criteria.
-
-The difference between bypass and a strongly filtered result is not bare device processing latency. It includes the filter's phase/group-delay contribution. For loudspeaker/subwoofer alignment this complete-response timing can be the quantity of interest, but it must be interpreted accordingly.
+Use the same interface, sample rate, channel assignments and physical reference path for baseline and DUT measurement.
 
 <!-- FIGURE PLACEHOLDER: Figure 5.2
 Application: Latency Bench
-Subject: Bandwidth-limited DUT result
-Show: A completed extended-analysis result with evidence and alternative diagnostics visible.
+Subject: Baseline and DUT physical wiring
+Show: two manually prepared signal-flow drawings or photographs, one for direct dual-loop baseline and one with the DUT inserted in path B.
+Crop: Only the relevant interface, cables and DUT or a clean manually drawn diagram.
 Suggested size: full text width
-Caption: Extended analysis of a strongly bandwidth-limited DUT.
+Caption: The baseline measures the two physical loops directly; the DUT measurement inserts the DUT only into path B.
 -->
 
-**Figure 5.2.** Extended analysis of a strongly bandwidth-limited DUT.
+**Figure 5.2.** Baseline and DUT physical-path wiring.
 
+## 5.3 Measurement workflow
 
-## 5.3 Reference and qualification measurements
+A reliable workflow is:
 
-> **Status:** These are the final authoritative v1.0.0 release-validation reference measurements.
+1. Select the audio device and the Reference OUT/IN and DUT OUT/IN channels.
+2. Set a conservative probe level. The default is `-30 dBFS`.
+3. Wire both paths directly and run **Measure Baseline**.
+4. Confirm that the baseline is accepted and stable.
+5. Insert the DUT into path B without changing the reference path.
+6. Put the DUT into the exact state to be measured.
+7. Run the DUT measurement.
+8. Interpret the reported median, run spread, correlation/evidence and any competing timing candidate.
+9. Save or record the result together with the physical setup and DUT state.
 
-#### Purpose
+The DUT measurement performs ten automatic runs. The **median** is the primary reported result because it is robust against an occasional outlying run. Mean, minimum, maximum and standard deviation provide additional repeatability evidence.
 
-This document records the authoritative physical reference series used during Latency Bench validation. These are real saved application reports, not synthetic expected values.
+## 5.4 Probe signal
 
-Measurement interface: **RME Babyface Pro**  
-DUT: **Neural DSP Quad Cortex**  
-Sample rate: **48 kHz**  
-Audio buffer: **16 samples**  
-Stored baseline for these reports: **0.00 samples**
+Latency Bench uses a deterministic pseudo-random bipolar broadband probe. The same known sequence is sent through the reference and DUT output paths.
 
-The baseline was obtained with two direct physical interface loopbacks. For the DUT series, the reference path remained direct while the Quad Cortex occupied only the DUT path. Interface configuration, channel selections, mixer routing, and gains were kept unchanged.
-
-The four DUT cases were intentionally arranged as a progression:
-
-1. Quad Cortex cable-only path, no DSP blocks.
-2. Same general preset topology with four DSP blocks present but bypassed.
-3. The same four DSP blocks active.
-4. The same active four-block chain plus a physical analog FX loop, with the loop send connected directly to the return by a patch cable.
-
-The active four-block chain used during this validation was:
+The normal analysis configuration uses:
 
 ```text
-Jewel Comp -> Brit 2203 Amp -> Analog Delay -> Brit 412 GB Cab
+probe length:        2048 samples
+capture length:     32768 samples
+prime:               2048 samples
+tail:               12288 samples
+maximum lag:        +/-16384 samples
+correlation window: 4096 samples
 ```
 
-For the FX-loop case, the physical D/A -> patch cable -> A/D loop was inserted after the compressor.
+The deterministic probe gives the estimator a known broadband signature rather than relying on an arbitrary program signal or a single periodic tone.
 
-#### Summary
+A periodic sine alone is a poor general-purpose latency probe because many delays separated by an integer number of periods can appear equally plausible. Broadband structure greatly reduces that ambiguity for ordinary paths.
 
-| Configuration | Median | Mean | Min | Max | Std dev |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Cable only / no DSP blocks | 89.14 samples / 1.857 ms | 89.14 | 89.14 | 89.14 | 0.001 samples / 0.0000 ms |
-| Four blocks present, all bypassed | 153.14 / 3.190 ms | 153.14 | 153.14 | 153.14 | 0.001 / 0.0000 ms |
-| Four blocks active | 174.69 / 3.639 ms | 175.19 | 174.64 | 179.76 | 1.524 / 0.0318 ms |
-| Four blocks active + analog FX loop | 296.03 / 6.167 ms | 297.53 | 295.94 | 301.10 | 2.334 / 0.0486 ms |
+## 5.5 Normalized cross-correlation
 
-Median-to-median increments:
+For each candidate lag, the estimator compares overlapping reference and DUT samples using normalized cross-correlation. Conceptually:
 
 ```text
-Cable only -> four blocks present/bypassed:
-+64.00 samples = +1.333 ms
-
-Four blocks bypassed -> four blocks active:
-+21.55 samples = +0.449 ms
-
-Four blocks active -> active + analog FX loop:
-+121.34 samples = +2.528 ms
+r(k) =
+    sum x[n] y[n+k]
+    -----------------------------------------
+    sqrt(sum x[n]^2 * sum y[n+k]^2)
 ```
 
-The simple cable-only and all-bypassed cases are exceptionally stable. The active four-block case contains one result at 179.76 samples while the main cluster is approximately 174.64...174.72 samples. The active + analog-loop case contains a main cluster around 295.94...296.03 samples and a second cluster around 301.08...301.10 samples.
+Normalization makes the timing comparison substantially insensitive to simple gain differences.
 
-These clustered results are deliberately preserved. They may represent a DUT timing state, correlation ambiguity, or another deterministic interaction. The reference data alone does not establish the cause. The median remains a robust summary of the dominant state.
+Latency Bench searches both positive and negative lags. It uses the **magnitude** of correlation for timing selection, so a polarity-inverted but otherwise valid path can still be timed correctly. The sign of raw correlation remains useful evidence about the relationship between the captured signals.
 
-#### Raw application reports
+The correlation peak is refined with parabolic interpolation, allowing fractional-sample timing estimates.
 
-##### Cable only / no DSP blocks
+## 5.6 Correlation evidence and overlap weighting
+
+A raw normalized-correlation value can become misleading near the edges of a search, where only a small number of samples overlap. Version 1.1.1 therefore keeps raw correlation separate from the evidence used to select the winning lag.
+
+The selection evidence is:
 
 ```text
-Latency Bench DUT measurement
-Sample rate: 48000 Hz
-Runs: 10
-Baseline: 0.00 samples
-Corrected latency:
-Median: 89.14 samples / 1.857 ms
-Mean: 89.14 samples / 1.857 ms
-Min: 89.14 samples / 1.857 ms
-Max: 89.14 samples / 1.857 ms
-Std dev: 0.001 samples / 0.0000 ms
-
-Runs:
-1: 89.14 samples / 1.857 ms | corr 0.8214 | ref -15.8 dBFS | DUT -14.6 dBFS
-2: 89.14 samples / 1.857 ms | corr 0.8210 | ref -15.8 dBFS | DUT -14.7 dBFS
-3: 89.14 samples / 1.857 ms | corr 0.8205 | ref -15.8 dBFS | DUT -14.7 dBFS
-4: 89.14 samples / 1.857 ms | corr 0.8205 | ref -15.8 dBFS | DUT -14.7 dBFS
-5: 89.14 samples / 1.857 ms | corr 0.8212 | ref -15.8 dBFS | DUT -14.7 dBFS
-6: 89.14 samples / 1.857 ms | corr 0.8220 | ref -15.8 dBFS | DUT -14.7 dBFS
-7: 89.14 samples / 1.857 ms | corr 0.8224 | ref -15.8 dBFS | DUT -14.6 dBFS
-8: 89.14 samples / 1.857 ms | corr 0.8222 | ref -15.8 dBFS | DUT -14.6 dBFS
-9: 89.14 samples / 1.857 ms | corr 0.8220 | ref -15.8 dBFS | DUT -14.6 dBFS
-10: 89.14 samples / 1.857 ms | corr 0.8215 | ref -15.8 dBFS | DUT -14.6 dBFS
+evidence =
+    abs(correlation)
+    * sqrt(actual_overlap / nominal_window)
 ```
 
-##### Four DSP blocks present, all bypassed
+This penalizes candidates supported by unusually short overlap without adding a preferred latency direction, expected-latency bias or polarity bias.
+
+Internally the estimator carries both quantities as `CorrelationEvidence { correlation, sampleCount }`.
+
+## 5.7 Confidence and ambiguity rejection
+
+Latency Bench is intentionally allowed to say that a measurement is ambiguous.
+
+The primary timing candidate must have evidence of at least `0.10`. After selecting it, the estimator searches for a sufficiently separate competing candidate. If the strongest separate candidate reaches at least **90% of the primary evidence**, the measurement is rejected rather than reporting an arbitrary winner.
+
+This is especially important for narrow-band or strongly resonant responses, where the correlation function can contain several plausible lobes.
+
+A rejected measurement is useful information. It means the captured response did not provide enough unique timing evidence under the current conditions to support one interpretation confidently.
+
+## 5.8 Automatic extended analysis
+
+Normal analysis is deliberately lightweight. When a DUT run has weak or competing timing evidence, version 1.1.1 automatically retries that run with extended analysis.
+
+The extended configuration uses:
 
 ```text
-Latency Bench DUT measurement
-Sample rate: 48000 Hz
-Runs: 10
-Baseline: 0.00 samples
-Corrected latency:
-Median: 153.14 samples / 3.190 ms
-Mean: 153.14 samples / 3.190 ms
-Min: 153.14 samples / 3.190 ms
-Max: 153.14 samples / 3.190 ms
-Std dev: 0.001 samples / 0.0000 ms
-
-Runs:
-1: 153.14 samples / 3.190 ms | corr 0.8240 | ref -15.8 dBFS | DUT -14.7 dBFS
-2: 153.14 samples / 3.190 ms | corr 0.8247 | ref -15.8 dBFS | DUT -14.7 dBFS
-3: 153.14 samples / 3.190 ms | corr 0.8248 | ref -15.8 dBFS | DUT -14.6 dBFS
-4: 153.14 samples / 3.190 ms | corr 0.8246 | ref -15.8 dBFS | DUT -14.6 dBFS
-5: 153.14 samples / 3.190 ms | corr 0.8243 | ref -15.8 dBFS | DUT -14.6 dBFS
-6: 153.14 samples / 3.190 ms | corr 0.8238 | ref -15.8 dBFS | DUT -14.7 dBFS
-7: 153.14 samples / 3.190 ms | corr 0.8231 | ref -15.8 dBFS | DUT -14.7 dBFS
-8: 153.14 samples / 3.190 ms | corr 0.8228 | ref -15.8 dBFS | DUT -14.7 dBFS
-9: 153.14 samples / 3.190 ms | corr 0.8233 | ref -15.8 dBFS | DUT -14.7 dBFS
-10: 153.14 samples / 3.190 ms | corr 0.8241 | ref -15.8 dBFS | DUT -14.7 dBFS
+probe length:        8192 samples
+correlation window: 12288 samples
 ```
 
-##### Four DSP blocks active
+The longer probe provides more information for strongly filtered paths.
+
+The UI identifies this behavior as:
+
+`Physical path latency | extended analysis when needed`
+
+A normal broadband DUT should not pay the cost of extended analysis. Qualification confirmed that an ordinary bypass/cable measurement remained on normal analysis for all ten runs.
+
+## 5.9 Magnitude-matched extended probe
+
+A strongly filtered DUT may remove so much of the broadband probe that the raw reference and DUT no longer resemble each other sufficiently for unambiguous correlation.
+
+During extended analysis, Latency Bench therefore estimates the DUT's captured magnitude spectrum and applies that magnitude shape to the reference probe in the frequency domain before correlation.
+
+The important constraint is that **DUT phase is not copied or corrected**. Only spectral magnitude is matched. The DUT's timing and phase behavior remain in the captured DUT response and are therefore still available to the estimator.
+
+This approach improves timing evidence for legitimate narrow-band and subwoofer-style outputs without defining an arbitrary minimum bandwidth.
+
+The signed lag range, confidence threshold and 90% competing-candidate ambiguity rule remain unchanged.
+
+## 5.10 No arbitrary bandwidth limit
+
+Latency Bench does not impose a rule such as "the DUT must pass at least N octaves" or "the response must extend above frequency X."
+
+Qualification demonstrated accepted measurements for very strongly bandwidth-limited low-frequency paths, including a 20-160 Hz band with 48 dB/oct filtering.
+
+Whether a particular path is measurable depends on the timing information present in the captured response, not on a fixed published bandwidth threshold.
+
+The opposite is equally important: some wider-looking responses can still be ambiguous if their correlation structure produces competing candidates. The estimator decides from evidence rather than from a hard-coded audio-band label.
+
+## 5.11 Polarity reversal
+
+Because timing selection uses correlation magnitude, a simple polarity inversion does not inherently invalidate a latency measurement. An otherwise unchanged inverted response produces a correlation peak of opposite sign at the same timing.
+
+This does **not** mean that arbitrary phase manipulation is irrelevant. Frequency-dependent phase shift, filtering and resonant behavior can alter the waveform and the shape of the correlation function. Polarity inversion is the special case of multiplying the whole waveform by `-1`.
+
+## 5.12 Baseline semantics
+
+The baseline is setup-bound. It represents the direct timing difference between the selected physical loops under the current measurement configuration.
+
+If the audio device, sample rate, channel assignments or physical cabling changes, establish a new baseline. Reusing an old baseline after changing the setup can produce a very repeatable but systematically wrong DUT result.
+
+The baseline subtraction can be written conceptually as:
 
 ```text
-Latency Bench DUT measurement
-Sample rate: 48000 Hz
-Runs: 10
-Baseline: 0.00 samples
-Corrected latency:
-Median: 174.69 samples / 3.639 ms
-Mean: 175.19 samples / 3.650 ms
-Min: 174.64 samples / 3.638 ms
-Max: 179.76 samples / 3.745 ms
-Std dev: 1.524 samples / 0.0318 ms
-
-Runs:
-1: 174.70 samples / 3.640 ms | corr 0.3319 | ref -15.8 dBFS | DUT -22.0 dBFS
-2: 174.72 samples / 3.640 ms | corr 0.3340 | ref -15.8 dBFS | DUT -22.0 dBFS
-3: 174.71 samples / 3.640 ms | corr 0.3345 | ref -15.8 dBFS | DUT -22.0 dBFS
-4: 174.71 samples / 3.640 ms | corr 0.3344 | ref -15.8 dBFS | DUT -22.1 dBFS
-5: 174.67 samples / 3.639 ms | corr 0.3322 | ref -15.8 dBFS | DUT -22.2 dBFS
-6: 174.64 samples / 3.638 ms | corr 0.3315 | ref -15.8 dBFS | DUT -22.0 dBFS
-7: 174.64 samples / 3.638 ms | corr 0.3333 | ref -15.8 dBFS | DUT -22.0 dBFS
-8: 174.64 samples / 3.638 ms | corr 0.3296 | ref -15.8 dBFS | DUT -22.0 dBFS
-9: 179.76 samples / 3.745 ms | corr 0.3302 | ref -15.8 dBFS | DUT -22.0 dBFS
-10: 174.69 samples / 3.639 ms | corr 0.3306 | ref -15.8 dBFS | DUT -22.1 dBFS
+DUT latency =
+    measured DUT-vs-reference offset
+    - stored direct-loop baseline offset
 ```
 
-##### Four DSP blocks active + analog FX loop
+The baseline is not intended to remove the DUT's own filter phase, converter delay or internal transport. Those are part of the DUT path being measured.
+
+## 5.13 Complete-response timing versus transport latency
+
+A filtered DUT deserves special care in interpretation.
+
+Suppose a bypass path measures approximately 1.86 ms. A steep low-pass or band-pass path through the same device may measure many milliseconds later even if the device's basic DSP transport has not changed. The additional timing can arise from the phase/group-delay behavior of the filter itself.
+
+Latency Bench therefore reports **complete-response timing** for the captured path.
+
+If the engineering question is specifically "what is the device's bare transport latency independent of this filter?", measure an appropriate broadband/bypass state or use another method capable of isolating that quantity.
+
+If the engineering question is "when does this filtered output actually arrive relative to the reference?", the complete-response result is exactly the relevant quantity.
+
+## 5.14 Reference physical measurements
+
+The final 1.1.1 qualification included a physical loopback/bypass reference at 48 kHz:
 
 ```text
-Latency Bench DUT measurement
-Sample rate: 48000 Hz
-Runs: 10
-Baseline: 0.00 samples
-Corrected latency:
-Median: 296.03 samples / 6.167 ms
-Mean: 297.53 samples / 6.198 ms
-Min: 295.94 samples / 6.166 ms
-Max: 301.10 samples / 6.273 ms
-Std dev: 2.334 samples / 0.0486 ms
-
-Runs:
-1: 301.10 samples / 6.273 ms | corr 0.3375 | ref -15.8 dBFS | DUT -21.8 dBFS
-2: 296.01 samples / 6.167 ms | corr 0.3340 | ref -15.8 dBFS | DUT -21.9 dBFS
-3: 296.03 samples / 6.167 ms | corr 0.3364 | ref -15.8 dBFS | DUT -21.8 dBFS
-4: 296.03 samples / 6.167 ms | corr 0.3371 | ref -15.8 dBFS | DUT -22.0 dBFS
-5: 296.03 samples / 6.167 ms | corr 0.3383 | ref -15.8 dBFS | DUT -22.3 dBFS
-6: 296.00 samples / 6.167 ms | corr 0.3375 | ref -15.8 dBFS | DUT -22.4 dBFS
-7: 295.96 samples / 6.166 ms | corr 0.3364 | ref -15.8 dBFS | DUT -22.0 dBFS
-8: 295.94 samples / 6.166 ms | corr 0.3389 | ref -15.8 dBFS | DUT -22.0 dBFS
-9: 301.09 samples / 6.273 ms | corr 0.3370 | ref -15.8 dBFS | DUT -22.0 dBFS
-10: 301.08 samples / 6.273 ms | corr 0.3379 | ref -15.8 dBFS | DUT -21.8 dBFS
+89.15 samples
+1.857 ms
+standard deviation: 0.000 ms
+analysis: normal, 10/10 runs
 ```
 
-#### v1.0.0 release reference measurements
+This provides the comparison point for the filtered-path examples below.
 
-The following four measurements are the authoritative Latency Bench v1.0.0
-release-validation reference set. They were repeated after the application
-and installer were frozen and validated.
+### 5.14.1 Representative filtered paths
 
-All measurements used 48 kHz, ten DUT runs, and a stored direct-loopback
-baseline of 0.00 samples. The same measurement-interface and routing setup
-was retained across the four DUT cases.
-
-##### 1. Quad Cortex, cable only / no DSP blocks
-
-Corrected latency:
-
-- Median: 89.15 samples / 1.857 ms
-- Mean: 89.15 samples / 1.857 ms
-- Min: 89.15 samples / 1.857 ms
-- Max: 89.15 samples / 1.857 ms
-- Standard deviation: 0.001 samples / 0.0000 ms
-- Near-equal alternative correlation peak: 0/10 runs
-- Correlation: approximately 0.8144...0.8162
-- Reference peak: -15.8 dBFS
-- DUT peak: -14.6...-14.7 dBFS
-
-This simple path is effectively sample-stable across the complete series.
-
-##### 2. Four DSP blocks present, all bypassed
-
-Corrected latency:
-
-- Median: 153.15 samples / 3.191 ms
-- Mean: 153.15 samples / 3.191 ms
-- Min: 153.15 samples / 3.191 ms
-- Max: 153.15 samples / 3.191 ms
-- Standard deviation: 0.001 samples / 0.0000 ms
-- Near-equal alternative correlation peak: 0/10 runs
-- Correlation: approximately 0.8168...0.8186
-- Reference peak: -15.8 dBFS
-- DUT peak: -14.6...-14.7 dBFS
-
-Relative to the cable-only case, merely inserting the four bypassed blocks
-adds 64.00 samples, approximately 1.334 ms.
-
-##### 3. Four DSP blocks active
-
-Chain:
-
-`Jewel Comp -> Brit 2203 Amp -> Analog Delay -> Brit 412 GB Cab`
-
-Corrected latency:
-
-- Median: 174.71 samples / 3.640 ms
-- Mean: 175.20 samples / 3.650 ms
-- Min: 174.65 samples / 3.638 ms
-- Max: 179.78 samples / 3.745 ms
-- Standard deviation: 1.528 samples / 0.0318 ms
-- Near-equal alternative correlation peak: 5/10 runs
-- Selected correlation: approximately 0.3298...0.3349
-- Reference peak: -15.8 dBFS
-- DUT peak: -22.0...-22.2 dBFS
-
-The known secondary correlation maximum remains visible approximately
-5.1 samples from the primary maximum. In one run the alternative maximum
-slightly exceeds the usual maximum and is selected. The ambiguity reporting
-therefore behaves as designed; the series median remains representative of
-the dominant latency cluster.
-
-Relative to the bypassed four-block case, activating the blocks adds
-21.56 samples, approximately 0.449 ms by the reported median values.
-
-##### 4. Four DSP blocks active plus physical analog FX loop
-
-The complete Quad Cortex validation chain for this case was:
-
-`Jewel Comp -> Analog FX Loop -> Brit 2203 Amp -> Analog Delay -> Brit 412 GB Cab`
-
-The same four active DSP blocks were used as in the preceding case, with the
-physical Analog FX Loop inserted after Jewel Comp. The loop adds a D/A ->
-analog patch cable -> A/D path.
-
-Corrected latency:
-
-- Median: 296.31 samples / 6.173 ms
-- Mean: 296.32 samples / 6.173 ms
-- Min: 296.26 samples / 6.172 ms
-- Max: 296.40 samples / 6.175 ms
-- Standard deviation: 0.051 samples / 0.0011 ms
-- Near-equal alternative correlation peak: 0/10 runs
-- Selected correlation: approximately 0.3755...0.3847
-- Reference peak: -15.8 dBFS
-- DUT peak: -22.4...-23.0 dBFS
-
-A secondary maximum remains visible about 5.46...5.59 samples later, but its
-relative correlation strength is only about 86.6...88.2%, so none of the ten
-runs meets the 99% near-equal threshold.
-
-Relative to the active four-block case, adding the physical analog FX loop
-adds 121.60 samples, approximately 2.533 ms by the reported median values.
-
-#### Release-reference summary
-
-| DUT configuration | Median samples | Median ms | Std dev samples | Near-equal |
-| --- | ---: | ---: | ---: | ---: |
-| Cable only / no blocks | 89.15 | 1.857 | 0.001 | 0/10 |
-| Four blocks, bypassed | 153.15 | 3.191 | 0.001 | 0/10 |
-| Four blocks, active | 174.71 | 3.640 | 1.528 | 5/10 |
-| Four blocks active + analog FX loop | 296.31 | 6.173 | 0.051 | 0/10 |
-
-Median-to-median increments:
-
-- Cable only -> four bypassed blocks: +64.00 samples / about +1.334 ms
-- Four bypassed -> four active: +21.56 samples / about +0.449 ms
-- Four active -> active + analog FX loop: +121.60 samples / about +2.533 ms
-
-These measurements validate both the very high repeatability of simple paths
-and the ambiguity-aware correlation reporting required for more complex,
-strongly processed signals. They are validation/reference measurements for
-Latency Bench itself; they are not intended as general specifications for the
-DUT.
-
-
-#### v1.1.1 estimator and bandwidth qualification
-
-The v1.0.0 Quad Cortex reports above remain historical release-reference measurements and are not rewritten. v1.1.1 adds a separate estimator-robustness qualification series, performed at 48 kHz with the same physical measurement concept.
-
-Key physically observed cases:
-
-| DUT response | Result | Analysis / interpretation |
+| DUT condition | Result | Interpretation |
 | --- | ---: | --- |
-| Wideband bypass | 89.15 samples / 1.857 ms | Normal analysis, 0/10 extended |
-| 2 kHz HPF, 48 dB/oct | 90.91 / 1.894 ms | Stable, alternative 77.0% |
-| 2–4 kHz, 48+48 dB/oct | 114.05 / 2.376 ms | Stable, alternative 81.5% |
-| 2–3 kHz | Rejected | Competing timing peaks, 91.6% |
-| 100–500 Hz | Rejected | Competing timing peaks, 92.4% |
-| 20–160 Hz, 24 dB/oct | 383.20 / 7.983 ms | Extended 10/10, std dev 0.005 samples |
-| 20–160 Hz, 48 dB/oct | 493.18 / 10.275 ms | Extended 10/10, std dev 0.006 samples |
+| bypass/cable | 89.15 samples / 1.857 ms | normal analysis |
+| LPF qualification case | 110.71 / 2.306 ms | accepted |
+| 300-3400 Hz, 24 dB/oct | 95.17 / 1.983 ms | accepted |
+| 1 kHz HPF, 48 dB/oct | 133.60 / 2.783 ms | accepted |
+| 2 kHz HPF, 48 dB/oct | 90.91 / 1.894 ms | accepted |
+| 2-4 kHz, 48+48 dB/oct | 114.05 / 2.376 ms | accepted |
+| 20-160 Hz, 24 dB/oct | 383.20 / 7.983 ms | extended, accepted |
+| 20-160 Hz, 48+48 dB/oct | 493.18 / 10.275 ms | extended, accepted |
 
-For the 20–160 Hz / 48 dB/oct case, the pre-spectral-match extended analysis was correctly rejected with only 0.0662 primary evidence. Its positive alternative was about 492.12 samples. With spectrally matched extended analysis, all ten runs converged at 493.17–493.18 samples with primary correlation/evidence about 0.798 and the strongest alternative at 78.0%. The 24 dB/oct case independently converged at 383.19–383.21 samples with correlation/evidence about 0.853. Immediate bypass returned to 89.15 samples using normal analysis.
+The 20-160 Hz, 48 dB/oct case had approximately `0.006 ms` run-to-run standard deviation and used extended analysis for all ten runs. The 24 dB/oct version had approximately `0.005 ms` standard deviation and likewise used extended analysis for all ten runs.
 
-The 20–160 Hz results are **complete-response timing measurements**, not bare DSP transport-latency specifications. Relative to the 89.15-sample / 1.857 ms bypass result, the 24 dB/oct response adds about 294.05 samples / 6.126 ms and the 48 dB/oct response about 404.03 samples / 8.417 ms. The slope-dependent difference is consistent with the filters' phase/group-delay contribution being part of the measured timing.
+Relative to the bypass reference, the 20-160 Hz 48 dB/oct response arrives about `404.03 samples / 8.417 ms` later, while the 24 dB/oct response arrives about `294.05 samples / 6.126 ms` later. These differences are consistent with measuring the complete filtered response, including filter phase/group delay, rather than merely a fixed DSP transport delay.
 
-#### Documentation scope
+## 5.15 Examples of correctly rejected measurements
 
-These reports are retained as historical physical validation data. Practical operating instructions are maintained separately in `MEASUREMENT_GUIDE.md`; estimator theory and interpretation remain in `MEASUREMENT_METHOD.md`. UI/control maintenance such as measurement cancellation does not change the numerical reference data above.
+Qualification also deliberately exercised cases where one timing interpretation was not sufficiently dominant.
 
-## 5.4 Application reference
+A 2-3 kHz narrow-band case was rejected with a primary candidate around 127.59 samples and a competing candidate around 118.87 samples whose evidence was about 91.6% of the primary.
 
-Version: **1.1.1**
+A 100-500 Hz case was likewise rejected when the competing candidate reached about 92.4% of the primary.
 
-Latency Bench is a focused macOS utility for measuring **true physical signal-path latency** through an arbitrary device under test (DUT) or complete analog/digital signal chain.
+These are successful estimator outcomes. The application refused to convert ambiguous evidence into false precision.
 
-It is deliberately DUT-agnostic. A DUT may be a modeler, converter, audio interface, digital mixer, DSP processor, pedal, rack device, or a chain of several devices. The application measures the physical path rather than relying on a driver's reported latency.
+Before magnitude-matched extended analysis was added, a 20-160 Hz 48 dB/oct case could also select a spurious large negative edge candidate. The 1.1.1 overlap-weighted evidence and magnitude-matched extended path were introduced specifically to make such edge/strong-filter cases robust without adding an expected-positive-latency bias.
 
-#### Measurement principle
+## 5.16 Reading the result
 
-One multichannel audio interface provides two simultaneous output paths and two simultaneous return paths:
+A strong result combines several kinds of evidence:
 
-```text
-Reference: Interface OUT A -> Interface IN A
-DUT:       Interface OUT B -> DUT -> Interface IN B
-```
+- median DUT latency;
+- low run-to-run standard deviation;
+- sensible minimum and maximum;
+- adequate primary correlation/evidence;
+- no competing candidate near the 90% rejection threshold;
+- a physical result consistent with the DUT state and measurement definition.
 
-Latency Bench emits the same deterministic broadband probe on both outputs and captures both returns in the same audio callback stream. Normalized cross-correlation estimates the relative sample offset between the two captures. A direct-loop baseline measures fixed channel-to-channel mismatch in the measurement interface and cabling; that offset is subtracted from the DUT result.
+Do not use correlation as a generic audio-quality score. A lower correlation can be perfectly legitimate when a DUT intentionally changes spectral magnitude or phase. Its role here is timing evidence.
 
-```text
-corrected latency = DUT/reference offset - stored baseline offset
-milliseconds       = 1000 * corrected samples / sample rate
-```
+Likewise, a standard deviation of zero does not prove absolute accuracy. It proves excellent repeatability under the tested conditions.
 
-At 48 kHz, one sample is approximately 0.020833 ms and 48 samples are exactly 1 ms.
+## 5.17 Troubleshooting an ambiguous or weak measurement
 
-#### Why the two-path method
+If a measurement is rejected or has weak evidence:
 
-Both return channels use the same interface, host callback stream, and converter clock. Host scheduling and much of the interface/transport buffering are therefore common to both paths and largely cancel from the differential result. The remaining fixed difference between the two physical measurement channels is removed by baseline calibration.
+1. verify that Reference and DUT channels are not swapped;
+2. verify signal level and make sure neither path clips;
+3. confirm that the DUT is actually passing the intended signal;
+4. check for feedback, parallel paths or unexpected dry signal;
+5. repeat the baseline if the physical setup has changed;
+6. allow the automatic extended analysis to complete;
+7. inspect whether the DUT response is extremely narrow-band or resonant;
+8. consider whether the desired quantity is actually complete-response timing or bare transport latency.
 
-For best accuracy, use equivalent physical output/input channels from the same converter families and do not change the interface configuration between baseline and DUT measurements.
+Do not solve ambiguity by simply choosing the numerically convenient peak. The rejection rule exists to prevent exactly that.
 
-#### Wiring
+## 5.18 Practical examples
 
-##### Baseline
+### Effects-loop latency
 
-```text
-Interface OUT A -> Interface IN A
-Interface OUT B -> Interface IN B
-```
+Measure the device in a bypass state, then compare the relevant effects-loop configurations while leaving the measurement interface and reference path unchanged. This can reveal latency contributed by analog send/return conversion and routing even when the inserted loop processing itself is bypassed.
 
-##### DUT
+### Modeler or digital processor
 
-```text
-Interface OUT A -> Interface IN A
-Interface OUT B -> DUT IN -> DUT OUT -> Interface IN B
-```
+Measure a broadband/bypass state first to establish the device's practical transport/reference timing. Then enable individual DSP blocks or signal paths and compare the resulting complete-response timing.
 
-Do not enable software loopback on the measurement channels.
+For filters, remember that the difference can include filter group delay rather than only added block scheduling or transport.
 
-#### Workflow
+### Subwoofer or crossover output
 
-1. Open **Options...** and select the measurement interface, sample rate, buffer size, and enabled physical I/O.
-2. Select the reference and DUT output/input channels in the main window.
-3. Set the probe level. The default is -30 dBFS.
-4. Wire both paths as direct loopbacks and run **Measure baseline**.
-5. Insert the DUT only in path B. Do not change the interface, mixer routing, gains, sample rate, buffer size, or selected channels.
-6. Run **Measure DUT**. Latency Bench performs ten consecutive measurements. Use **Cancel** at any time to abort the current baseline or DUT measurement safely without changing a previously valid baseline.
-7. Inspect the median, mean, minimum, maximum, standard deviation, correlation, and individual runs.
-8. Use **Save As...** to save the complete result report as text.
+A subwoofer output is a legitimate Latency Bench target. Let automatic extended analysis handle the strongly low-pass response. If the estimator accepts the result with good repeatability and no near-equal competitor, there is no requirement to artificially widen the DUT bandwidth.
 
-A successful baseline persists across relaunches together with the device, sample rate, buffer size, and four selected measurement channels. It is restored only when the setup still matches. Changing the setup invalidates the baseline. DUT measurement is blocked when no valid baseline is available.
+Interpret the result as the arrival timing of that filtered output.
 
-The selected audio interface and JUCE device state are also persisted. Latency Bench does not silently adopt the current macOS default device when a previously selected device is unavailable.
+## 5.19 Validation scope
 
-#### Levels and external mixer routing
+Version 1.1.1 qualification included:
 
-The default digital probe level is **-30 dBFS**. A practical received peak range is roughly **-40 to -20 dBFS**. There is no measurement benefit in operating near clipping.
+- deterministic estimator tests;
+- normal and extended analysis;
+- overlap-weighted evidence behavior;
+- fractional-sample interpolation;
+- polarity-insensitive timing selection;
+- competing-candidate rejection;
+- strongly filtered HPF, LPF and band-pass paths;
+- subwoofer-style 20-160 Hz responses;
+- repeated physical loopback measurements;
+- regression checks confirming ordinary broadband paths remain on normal analysis;
+- documentation of accepted and intentionally rejected cases.
 
-Analog output levels, input gains, and hardware routing remain under the interface's own control software. With RME TotalMix, the Hardware Input fader is a monitoring/routing control and does not determine the level delivered to Latency Bench through CoreAudio. Avoid routing a measurement input back to its measurement output, because that creates feedback. Software Playback to the selected physical outputs should be routed normally, Hardware Input monitoring to those outputs should be off, and TotalMix Loopback should be off.
+The reference measurements demonstrate the estimator on the tested physical setup. They are not universal latency specifications for the devices used in qualification.
 
-#### Analysis
+## 5.20 Measurement record
 
-The probe is a deterministic pseudo-random bipolar broadband burst. Latency is estimated with normalized cross-correlation, using absolute correlation magnitude so an inverting DUT can still be measured. A three-point parabolic interpolation around the selected correlation maximum provides the fractional-sample estimate.
-
-The full supported lag range is searched, but correlation is calculated from the known probe-bearing reference window rather than repeatedly scanning the entire capture buffer. This keeps ten-run measurements responsive while preserving the lag search and sub-sample refinement.
-
-The individual run results matter. Strongly nonlinear, time-varying, phase-altering, or internally block-scheduled DUTs can produce lower correlation or more than one strong correlation candidate. Median is therefore the primary summary statistic, while mean, range, standard deviation, correlation, and all ten raw runs remain visible.
-
-Latency Bench also reports the strongest separate local correlation peak. v1.1.1 rejects a run as ambiguous when that separate candidate reaches 90% of the primary lag-selection evidence. The historical `NEAR-EQUAL` diagnostic remains defined at 99%, but valid v1.1.1 runs normally cannot reach it because the 90% validity rule is stricter. The application never forces an expected, earlier, or later candidate.
-
-##### Bandwidth-limited paths
-
-There is no fixed LF, HF, or octave-span requirement. If the normal broadband analysis cannot establish reliable timing, Latency Bench automatically retries the DUT run with a longer probe/window and spectrally matches the reference magnitude to the captured DUT before correlation. The DUT phase is left intact. If a unique timing interpretation still cannot be established, the result is rejected rather than forced.
-
-There is no fixed LF, HF, absolute-bandwidth, or octave-span requirement; measurability is determined from timing evidence. Physical qualification includes a realistic 20–160 Hz subwoofer-style path. At 48 kHz, the same path measured 89.15 samples / 1.857 ms bypassed, 383.20 / 7.983 ms with 24 dB/oct HPF+LPF, and 493.18 / 10.275 ms with 48 dB/oct HPF+LPF. These filtered results represent the timing displacement of the complete transfer function, including filter phase/group-delay behaviour; the added delay must not be interpreted as bare device transport/processing latency.
-
-#### Physical validation
-
-The method has been validated at **48 kHz / 16 samples** using an **RME Babyface Pro** as the measurement interface and a **Neural DSP Quad Cortex** as a real DUT. Direct two-channel loopback calibration produced a 0.00-sample baseline. The Quad Cortex DSP example used for the active-chain validation was:
+For a result worth publishing or comparing later, record:
 
 ```text
-Jewel Comp -> Analog FX Loop -> Brit 2203 Amp -> Analog Delay -> Brit 412 GB Cab
+Latency Bench version
+audio interface/device
+sample rate
+Reference OUT / IN
+DUT OUT / IN
+probe level
+baseline result
+DUT identity
+DUT state / enabled processing
+median latency in samples and ms
+mean / min / max / standard deviation
+normal or extended-analysis run count
+correlation/evidence and competing candidate if relevant
+physical wiring notes
 ```
 
-For the four-block active case, the Analog FX Loop was not inserted in the physical path. For the final FX-loop case it was enabled after Jewel Comp, adding the physical D/A -> analog patch cable -> A/D path.
-
-The authoritative four-case reference series includes:
-
-| Quad Cortex configuration | Median latency | Mean | Min...max | Std dev |
-| --- | ---: | ---: | ---: | ---: |
-| Cable only / no DSP blocks | 89.14 samples / 1.857 ms | 89.14 | 89.14...89.14 | 0.001 samples |
-| Four DSP blocks present, all bypassed | 153.14 / 3.190 ms | 153.14 | 153.14...153.14 | 0.001 |
-| Four DSP blocks active | 174.69 / 3.639 ms | 175.19 | 174.64...179.76 | 1.524 |
-| Four DSP blocks active + analog FX loop | 296.03 / 6.167 ms | 297.53 | 295.94...301.10 | 2.334 |
-
-Using the medians, the observed increments are approximately:
-
-- four bypassed blocks present versus cable-only: **+64.00 samples / +1.333 ms**
-- activating the four blocks: **+21.55 samples / +0.449 ms**
-- adding the physical D/A -> patch cable -> A/D FX loop: **+121.34 samples / +2.528 ms**
-
-The two more complex active-DSP cases show occasional tightly grouped results roughly five samples above the main cluster. The measurements document that behavior without assigning its cause to either the DUT or the estimator.
-
-For practical operating procedures, see [`docs/MEASUREMENT_GUIDE.md`](docs/MEASUREMENT_GUIDE.md). The complete ten-run reports and exact validation notes are in [`docs/REFERENCE_MEASUREMENTS.md`](docs/REFERENCE_MEASUREMENTS.md). The measurement theory and limitations are in [`docs/MEASUREMENT_METHOD.md`](docs/MEASUREMENT_METHOD.md).
-
-#### Build and verify
-
-JUCE is expected by default at:
-
-```text
-../rf-fingerprint/JUCE
-```
-
-or can be supplied with `-DJUCE_DIR=/absolute/path/to/JUCE`.
-
-Run:
-
-```bash
-./scripts/verify.sh
-```
-
-The verification build checks the application bundle, bundle identifier `works.60n.latencybench`, and the required macOS microphone/audio-input usage description.
-
-#### Current status
-
-Version 1.1.1 adds overlap-aware lag-selection evidence, confidence-based rejection of weak or competing timing interpretations, and automatic extended spectrally matched analysis for strongly bandwidth-limited DUTs. The normal broadband path remains unchanged when it already produces reliable timing evidence. Release qualification is tracked in `docs/ROADMAP.md`.
-
-No measurement result should be interpreted more precisely than the DUT and signal permit. In particular, fractional-sample interpolation is useful for repeatability and comparison, but unusual DUT bandwidth, phase response, modulation, or multiple internal processing states can make a single scalar latency an incomplete description.
-
-#### macOS installer package
-
-Build the verified local installer with:
-
-```bash
-./scripts/build-pkg.sh
-```
-
-The script performs a clean Release verification first and then writes:
-
-```text
-Dist/Latency-Bench-1.1.1.pkg
-```
-
-The package installs the application at:
-
-```text
-/Applications/60°N Signal Works Audio Bench Suite/Latency Bench.app
-```
-
-The current package is intended for local/test installation and is not Developer ID signed or notarized. Signing/notarization is a separate release-distribution step if required.
-
-
-#### Artwork
-
-The application icon and in-app logo use `assets/Latency-Bench-Logo.png`.
+A latency number without its signal-path definition is rarely enough to reproduce the measurement.
 
 # 6. Matrix Bench
 
