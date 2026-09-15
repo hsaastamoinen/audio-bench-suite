@@ -53,3 +53,6 @@ Completed after the five application-specific source reconciliations. The canoni
 
 ### Table of contents
 Added a publication-oriented table of contents generated from all numbered chapter and second-level section headings. Front-matter helper sections remain outside the numbered TOC. The later DOCX publication copy should use Word heading styles so its page-numbered TOC can be generated or refreshed natively after screenshots and final pagination are in place.
+
+### Figure and screenshot production list
+`Handbook/FIGURE_SHOT_LIST.md` is generated from the finalized 17 figure placeholders in the canonical handbook. It is the publication checklist for real application screenshots and manually prepared diagrams before DOCX layout. The list preserves each figure number, application, subject/state, required visible content, crop, suggested size and final caption.
