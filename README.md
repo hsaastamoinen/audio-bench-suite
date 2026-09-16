@@ -9,8 +9,9 @@ Suite-level distribution and documentation project for:
 - Latency Bench
 
 The macOS suite installer provides a single graphical Installer package with
-six selectable items: the five Bench applications and the Audio Bench Suite
-Handbook. All choices are selected by default.
+seven selectable items: the five Bench applications, the Audio Bench Suite
+Handbook and the Audio Bench Suite Uninstaller. All choices are selected by
+default.
 
 ## Current suite release
 
@@ -36,6 +37,10 @@ separate Markdown handbook source.
 
 The PDF is included as a selectable component of the macOS suite installer and
 is installed alongside the applications.
+
+The installer also provides the selectable Audio Bench Suite Uninstaller. It is
+installed alongside the applications as the double-clickable
+`Uninstall Audio Bench Suite.command`.
 
 ## macOS distribution
 

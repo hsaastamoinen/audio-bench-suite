@@ -30,6 +30,7 @@ if [[ -f "$PKG" ]]; then
    "SpectralBench-App-suite.pkg" "SpectralBench-AU-suite.pkg" "SpectralBench-VST3-suite.pkg"
    "Latency-Bench-${LATENCY_VERSION}-suite.pkg"
    "Audio-Bench-Suite-Handbook.pkg"
+   "Audio-Bench-Suite-Uninstaller.pkg"
   )
   for n in "${expected[@]}"; do
     [[ -d "$TMP/product/$n" ]] || { echo "ERROR: missing $n"; exit 1; }

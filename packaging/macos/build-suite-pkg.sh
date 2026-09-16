@@ -55,6 +55,13 @@ LATENCY_COMPONENT_PLIST="$WORK/latency-suite-components.plist"
 pkgbuild --analyze --root "$EXP/latency/Payload" "$LATENCY_COMPONENT_PLIST"
 plutil -replace '0.BundleIsRelocatable' -bool NO "$LATENCY_COMPONENT_PLIST"
 pkgbuild --root "$EXP/latency/Payload" --component-plist "$LATENCY_COMPONENT_PLIST" --identifier "works.60n.audiobenchsuite.latency" --version "$LATENCY_VERSION" --install-location "/" "$PKGS/Latency-Bench-${LATENCY_VERSION}-suite.pkg"
+# Suite-owned double-clickable uninstaller component.
+UNROOT="$WORK/uninstaller-root"
+mkdir -p "$UNROOT/Applications/60°N Signal Works Audio Bench Suite"
+ditto "$ROOT/packaging/macos/uninstall-suite.sh" "$UNROOT/Applications/60°N Signal Works Audio Bench Suite/Uninstall Audio Bench Suite.command"
+chmod 755 "$UNROOT/Applications/60°N Signal Works Audio Bench Suite/Uninstall Audio Bench Suite.command"
+pkgbuild --root "$UNROOT" --identifier "works.60n.audiobenchsuite.uninstaller.pkg" --version "$SUITE_VERSION" --install-location "/" "$PKGS/Audio-Bench-Suite-Uninstaller.pkg"
+
 # Suite-owned handbook component.
 HBROOT="$WORK/handbook-root"
 mkdir -p "$HBROOT/Applications/60°N Signal Works Audio Bench Suite"
@@ -90,6 +97,7 @@ IFS='|' read -r SPECTRAL_AU_ID SPECTRAL_AU_VER <<< "$(pkg_meta "$PKGS/SpectralBe
 IFS='|' read -r SPECTRAL_VST_ID SPECTRAL_VST_VER <<< "$(pkg_meta "$PKGS/SpectralBench-VST3-suite.pkg")"
 IFS='|' read -r LATENCY_ID LATENCY_PKG_VER <<< "$(pkg_meta "$PKGS/Latency-Bench-${LATENCY_VERSION}-suite.pkg")"
 IFS='|' read -r HANDBOOK_ID HANDBOOK_VER <<< "$(pkg_meta "$PKGS/Audio-Bench-Suite-Handbook.pkg")"
+IFS='|' read -r UNINSTALLER_ID UNINSTALLER_VER <<< "$(pkg_meta "$PKGS/Audio-Bench-Suite-Uninstaller.pkg")"
 
 DIST="$WORK/Distribution.xml"
 cat > "$DIST" <<EOF_DIST
@@ -106,6 +114,7 @@ cat > "$DIST" <<EOF_DIST
     <line choice="spectral"/>
     <line choice="latency"/>
     <line choice="handbook"/>
+    <line choice="uninstaller"/>
   </choices-outline>
 
   <choice id="matrix" title="Matrix Bench ${MATRIX_VERSION}" description="Audio routing matrix, virtual Core Audio device and persistent routing engine." start_selected="true">
@@ -126,6 +135,9 @@ cat > "$DIST" <<EOF_DIST
   <choice id="handbook" title="Audio Bench Suite Handbook" description="Install the PDF user handbook with the suite." start_selected="true">
     <pkg-ref id="${HANDBOOK_ID}"/>
   </choice>
+  <choice id="uninstaller" title="Audio Bench Suite Uninstaller" description="Install the double-clickable suite removal utility." start_selected="true">
+    <pkg-ref id="${UNINSTALLER_ID}"/>
+  </choice>
 
   <pkg-ref id="${MATRIX_ID}" version="${MATRIX_PKG_VER}">Matrix-Bench-${MATRIX_VERSION}.pkg</pkg-ref>
   <pkg-ref id="${MIDI_ID}" version="${MIDI_PKG_VER}">MIDI-Bench-${MIDI_VERSION}-suite.pkg</pkg-ref>
@@ -137,6 +149,7 @@ cat > "$DIST" <<EOF_DIST
   <pkg-ref id="${SPECTRAL_VST_ID}" version="${SPECTRAL_VST_VER}">SpectralBench-VST3-suite.pkg</pkg-ref>
   <pkg-ref id="${LATENCY_ID}" version="${LATENCY_PKG_VER}">Latency-Bench-${LATENCY_VERSION}-suite.pkg</pkg-ref>
   <pkg-ref id="${HANDBOOK_ID}" version="${HANDBOOK_VER}">Audio-Bench-Suite-Handbook.pkg</pkg-ref>
+  <pkg-ref id="${UNINSTALLER_ID}" version="${UNINSTALLER_VER}">Audio-Bench-Suite-Uninstaller.pkg</pkg-ref>
 </installer-gui-script>
 EOF_DIST
 
@@ -185,6 +198,7 @@ expected=(
   "SpectralBench-VST3-suite.pkg"
   "Latency-Bench-${LATENCY_VERSION}-suite.pkg"
   "Audio-Bench-Suite-Handbook.pkg"
+  "Audio-Bench-Suite-Uninstaller.pkg"
 )
 for n in "${expected[@]}"; do
   [[ -d "$VERIFY/$n" ]] || { echo "ERROR: missing embedded component: $n" >&2; exit 1; }

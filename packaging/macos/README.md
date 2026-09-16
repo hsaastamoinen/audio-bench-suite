@@ -5,7 +5,7 @@ Installer distribution. Component versions are pinned in `release.conf`.
 
 ## Installer choices
 
-The Installer exposes six selectable choices, all selected by default:
+The Installer exposes seven selectable choices, all selected by default:
 
 - Matrix Bench
 - MIDI Bench
@@ -13,6 +13,7 @@ The Installer exposes six selectable choices, all selected by default:
 - Spectral Bench
 - Latency Bench
 - Audio Bench Suite Handbook
+- Audio Bench Suite Uninstaller
 
 ## Packaging architecture
 
@@ -42,6 +43,10 @@ and packaged as a suite-owned component installed at:
 
 `/Applications/60°N Signal Works Audio Bench Suite/Audio Bench Suite Handbook.pdf`
 
+The suite-owned double-clickable uninstaller is installed at:
+
+`/Applications/60°N Signal Works Audio Bench Suite/Uninstall Audio Bench Suite.command`
+
 ## Build
 
 From the repository root:
@@ -64,7 +69,7 @@ Run:
 
 Verification checks the pinned input packages, handbook publication files,
 packaging scripts and, when present, the built suite package and its expected
-10 embedded component packages. It also reports the suite package SHA-256.
+11 embedded component packages. It also reports the suite package SHA-256.
 
 The distribution is intentionally unsigned at this stage, matching the current
 release-package policy.
@@ -88,9 +93,11 @@ and Core Audio HAL driver through the Matrix Bench package.
 
 ## Removal
 
-`uninstall-suite.sh` is the suite-level removal helper. It removes the suite
-applications and handbook, known Signal/Spectral plug-ins, and Matrix Bench's
-persistent engine/HAL components.
+`uninstall-suite.sh` is the suite-level removal source. The installer packages
+it as the double-clickable `Uninstall Audio Bench Suite.command` alongside the
+applications and handbook. It removes the suite applications, handbook and
+itself, known Signal/Spectral plug-ins, Matrix Bench's persistent engine/HAL
+components, and relevant package receipts.
 
 The uninstall and clean-reinstall paths have been qualified against the final
 suite package, including removal of suite-owned files, Matrix Bench engine/HAL

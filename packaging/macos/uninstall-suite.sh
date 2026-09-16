@@ -26,7 +26,8 @@ sudo rm -rf \
   "$SUITE/Signal Bench.app" \
   "$SUITE/Spectral Bench.app" \
   "$SUITE/Latency Bench.app" \
-  "$SUITE/Audio Bench Suite Handbook.pdf"
+  "$SUITE/Audio Bench Suite Handbook.pdf" \
+  "$SUITE/Uninstall Audio Bench Suite.command"
 
 # Signal/Spectral plug-ins, where installed by their component packages.
 sudo rm -rf \
@@ -47,6 +48,7 @@ fi
 
 # Forget receipts so a later clean reinstall is not influenced by stale receipts.
 for id in \
+  works.60n.audiobenchsuite.uninstaller.pkg \
   works.60n.audiobenchsuite.handbook.pkg \
   works.60n.audiobenchsuite.midi \
   works.60n.audiobenchsuite.signal.app \
