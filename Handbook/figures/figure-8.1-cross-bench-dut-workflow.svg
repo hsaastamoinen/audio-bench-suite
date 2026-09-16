@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="760" viewBox="0 0 1500 760">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z"/></marker>
+<style>text{font-family:Arial,sans-serif;fill:#111}.t{font-size:32px;font-weight:700}.h{font-size:23px;font-weight:700}.b{font-size:18px}.s{font-size:16px;fill:#444}.box{fill:#f7f7f7;stroke:#222;stroke-width:2}.opt{fill:#fff;stroke:#666;stroke-width:2;stroke-dasharray:10 8}.aud{fill:none;stroke:#222;stroke-width:3;marker-end:url(#a)}.ctl{fill:none;stroke:#555;stroke-width:2.5;stroke-dasharray:9 7;marker-end:url(#a)}</style></defs>
+<rect width="1500" height="760" fill="white"/>
+<text x="750" y="52" text-anchor="middle" class="t">General cross-Bench DUT workflow</text>
+<text x="750" y="84" text-anchor="middle" class="s">Choose only the Benches needed for the measurement question</text>
+<rect x="60" y="245" width="235" height="125" rx="12" class="box"/><text x="178" y="292" text-anchor="middle" class="h">Signal Bench</text><text x="178" y="325" text-anchor="middle" class="b">Known stimulus</text><text x="178" y="350" text-anchor="middle" class="s">tone, noise or test signal</text>
+<rect x="380" y="245" width="250" height="125" rx="12" class="opt"/><text x="505" y="292" text-anchor="middle" class="h">Matrix Bench</text><text x="505" y="325" text-anchor="middle" class="b">Optional routing</text><text x="505" y="350" text-anchor="middle" class="s">split, monitor or route paths</text>
+<rect x="720" y="245" width="210" height="125" rx="12" class="box"/><text x="825" y="305" text-anchor="middle" class="h">DUT</text><text x="825" y="338" text-anchor="middle" class="s">device under test</text>
+<path d="M295 307H380" class="aud"/><path d="M630 307H720" class="aud"/>
+<path d="M930 307H1020V190H1080" class="aud"/><path d="M930 307H1020V425H1080" class="aud"/>
+<rect x="1080" y="125" width="350" height="135" rx="12" class="box"/><text x="1255" y="170" text-anchor="middle" class="h">Spectral Bench</text><text x="1255" y="203" text-anchor="middle" class="b">Response analysis</text><text x="1255" y="230" text-anchor="middle" class="s">spectrum, level, distortion, sweep, phase</text>
+<rect x="1080" y="360" width="350" height="135" rx="12" class="box"/><text x="1255" y="405" text-anchor="middle" class="h">Latency Bench</text><text x="1255" y="438" text-anchor="middle" class="b">Physical-path delay</text><text x="1255" y="465" text-anchor="middle" class="s">baseline-corrected DUT latency</text>
+<rect x="595" y="555" width="460" height="125" rx="12" class="opt"/><text x="825" y="598" text-anchor="middle" class="h">MIDI Bench</text><text x="825" y="630" text-anchor="middle" class="b">Optional control and repeatable test states</text><text x="825" y="655" text-anchor="middle" class="s">observe, send or sequence MIDI independently of the audio path</text>
+<path d="M825 555V370" class="ctl"/><text x="845" y="515" class="s">MIDI control</text>
+<text x="750" y="730" text-anchor="middle" class="s">Matrix Bench and MIDI Bench are optional; Spectral Bench and Latency Bench answer different measurement questions.</text>
+</svg>

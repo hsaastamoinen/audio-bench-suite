@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="720" viewBox="0 0 1400 720" role="img" aria-labelledby="title desc">
+<title id="title">Latency Bench baseline and DUT physical wiring</title>
+<desc id="desc">Baseline uses two direct physical loops. DUT measurement keeps the reference loop direct and inserts the DUT only in path B.</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#222"/>
+  </marker>
+  <style>
+    text { font-family: Arial, Helvetica, sans-serif; fill:#111; }
+    .h1 { font-size:30px; font-weight:700; }
+    .h2 { font-size:24px; font-weight:700; }
+    .label { font-size:19px; font-weight:600; }
+    .small { font-size:17px; }
+    .note { font-size:16px; fill:#444; }
+    .panel { fill:#fff; stroke:#777; stroke-width:2; }
+    .device { fill:#f7f7f7; stroke:#222; stroke-width:2; }
+    .interface-boundary { fill:#f7f7f7; stroke:#555; stroke-width:2; stroke-dasharray:10 8; }
+    .port { fill:#fff; stroke:#555; stroke-width:1.5; }
+    .path { fill:none; stroke:#222; stroke-width:3; marker-end:url(#arrow); }
+    .divider { stroke:#aaa; stroke-width:1.5; }
+  </style>
+</defs>
+
+<rect width="1400" height="720" fill="#fff"/>
+<text x="700" y="48" text-anchor="middle" class="h1">Latency Bench physical wiring</text>
+
+<!-- BASELINE -->
+<rect x="35" y="85" width="645" height="585" rx="14" class="panel"/>
+<text x="357" y="125" text-anchor="middle" class="h2">A. Baseline measurement</text>
+<text x="357" y="154" text-anchor="middle" class="note">Both physical paths are direct loops</text>
+
+<rect x="75" y="205" width="230" height="370" rx="12" class="interface-boundary"/>
+<text x="190" y="242" text-anchor="middle" class="label">Audio interface</text>
+<rect x="105" y="275" width="170" height="50" rx="8" class="port"/>
+<text x="190" y="307" text-anchor="middle" class="small">Reference OUT</text>
+<rect x="105" y="355" width="170" height="50" rx="8" class="port"/>
+<text x="190" y="387" text-anchor="middle" class="small">Reference IN</text>
+<rect x="105" y="435" width="170" height="50" rx="8" class="port"/>
+<text x="190" y="467" text-anchor="middle" class="small">DUT OUT</text>
+<rect x="105" y="500" width="170" height="50" rx="8" class="port"/>
+<text x="190" y="532" text-anchor="middle" class="small">DUT IN</text>
+
+<path d="M275 300 H575 V380 H275" class="path"/>
+<text x="440" y="283" text-anchor="middle" class="small">Reference path A</text>
+
+<path d="M275 460 H575 V525 H275" class="path"/>
+<text x="440" y="443" text-anchor="middle" class="small">DUT path B, direct</text>
+
+<text x="357" y="602" text-anchor="middle" class="small">Measure and store the direct dual-loop offset.</text>
+<text x="357" y="630" text-anchor="middle" class="note">No DUT is present in either path.</text>
+
+<!-- DUT -->
+<rect x="720" y="85" width="645" height="585" rx="14" class="panel"/>
+<text x="1042" y="125" text-anchor="middle" class="h2">B. DUT measurement</text>
+<text x="1042" y="154" text-anchor="middle" class="note">Reference remains direct; DUT is inserted only in path B</text>
+
+<rect x="760" y="205" width="230" height="370" rx="12" class="interface-boundary"/>
+<text x="875" y="242" text-anchor="middle" class="label">Audio interface</text>
+<rect x="790" y="275" width="170" height="50" rx="8" class="port"/>
+<text x="875" y="307" text-anchor="middle" class="small">Reference OUT</text>
+<rect x="790" y="355" width="170" height="50" rx="8" class="port"/>
+<text x="875" y="387" text-anchor="middle" class="small">Reference IN</text>
+<rect x="790" y="435" width="170" height="50" rx="8" class="port"/>
+<text x="875" y="467" text-anchor="middle" class="small">DUT OUT</text>
+<rect x="790" y="500" width="170" height="50" rx="8" class="port"/>
+<text x="875" y="532" text-anchor="middle" class="small">DUT IN</text>
+
+<path d="M960 300 H1280 V380 H960" class="path"/>
+<text x="1120" y="283" text-anchor="middle" class="small">Reference path A, unchanged</text>
+
+<rect x="1080" y="430" width="150" height="82" rx="10" class="device"/>
+<text x="1155" y="480" text-anchor="middle" class="h2">DUT</text>
+<path d="M960 460 H1080" class="path"/>
+<path d="M1230 471 H1280 V525 H960" class="path"/>
+<text x="1155" y="548" text-anchor="middle" class="small">DUT path B</text>
+
+<text x="1042" y="602" text-anchor="middle" class="small">Measure the DUT path with the same reference loop.</text>
+<text x="1042" y="630" text-anchor="middle" class="note">Latency Bench subtracts the stored baseline.</text>
+</svg>
